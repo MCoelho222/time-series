@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import scipy.stats as sts
 
 from rhis.custom_types import MannKendallResults
 from rhis.utils import ranks_ties_corrected, test_decision_normal

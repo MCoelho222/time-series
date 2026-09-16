@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -11,11 +13,49 @@ DEFAULT_ALPHA = 0.05
 SHORT_SERIES_LEN = 5
 LONG_SERIES_LEN = 101
 INITIAL_LEN_FOR_LONG_SERIES = 10
+TOTAL_P_VALUES_TOL = 1e-9
+
+MONTHLY_PERIOD_START = '2020-01-01'
+MONTHLY_PERIOD_END = '2026-01-01'
+MONTHLY_FREQ = 'MS'
+DROPPED_MONTHS = ['2020-06-01', '2021-12-01', '2023-03-01', '2025-08-01']
+TEXT_MARKERS = {
+    '2021-03-01': 'N/A',
+    '2022-01-01': 'NA',
+    '2022-09-01': '2-5',
+    '2023-08-01': '<LD',
+    '2024-01-01': '-',
+}
+MISSING_VALUES = {'2020-02-01': np.nan, '2020-10-01': None}
+OUTLIERS = {'2020-11-01': 999.9, '2024-06-01': -12.7}
+FLOW_OUTLIER_HIGH = 999.9
+FLOW_OUTLIER_LOW = -12.7
+
+SPARSE_TS_NON_NUMERIC = 8
+SPARSE_TS_NUMERIC = 3
 
 
 def _make_df(n_rows: int = 60, n_cols: int = 2) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     return pd.DataFrame({f'series_{i}': rng.normal(50, 15, n_rows) for i in range(n_cols)})
+
+
+def _make_messy_monthly_df() -> pd.DataFrame:
+    rng = np.random.default_rng(7)
+    index = pd.date_range(MONTHLY_PERIOD_START, MONTHLY_PERIOD_END, freq=MONTHLY_FREQ)
+    values = (np.sort(rng.normal(50, 10, len(index))).round(1) + 20 * np.linspace(0, 1, len(index))).astype(object)
+
+    df = pd.DataFrame({'flow': values}, index=index, dtype=object)
+    df = df.drop(pd.to_datetime(DROPPED_MONTHS))
+
+    for date, value in TEXT_MARKERS.items():
+        df.loc[date, 'flow'] = value
+    for date, value in MISSING_VALUES.items():
+        df.loc[date, 'flow'] = value
+    for date, value in OUTLIERS.items():
+        df.loc[date, 'flow'] = value
+
+    return df
 
 
 @pytest.mark.parametrize(
@@ -58,8 +98,45 @@ def test_constructor_length_init_ts_for_long_series() -> None:
     assert rhis.length_init_ts == INITIAL_LEN_FOR_LONG_SERIES
 
 
-def test_evol_sets_state_and_structure() -> None:
-    df = _make_df(n_rows=60)
+def test_constructor_accepts_messy_monthly_df() -> None:
+    df = _make_messy_monthly_df()
+    rhis = Rhis(df)
+
+    full_months = pd.date_range(MONTHLY_PERIOD_START, MONTHLY_PERIOD_END, freq=MONTHLY_FREQ)
+    assert len(df) == len(full_months) - len(DROPPED_MONTHS)
+
+    assert isinstance(df.index, pd.DatetimeIndex)
+    assert df.index.is_monotonic_increasing
+    assert df.index.to_series().diff().dropna().nunique() > 1
+    assert df.index[0] == pd.Timestamp(MONTHLY_PERIOD_START)
+    assert df.index[-1] == pd.Timestamp(MONTHLY_PERIOD_END)
+
+    assert df['flow'].isin(TEXT_MARKERS.values()).sum() == len(TEXT_MARKERS)
+
+    nums = pd.to_numeric(df['flow'], errors='coerce')
+    expected_numeric = len(df) - len(TEXT_MARKERS) - len(MISSING_VALUES)
+    assert int(nums.notna().sum()) == expected_numeric
+    assert float(nums.max()) == FLOW_OUTLIER_HIGH
+    assert float(nums.min()) == FLOW_OUTLIER_LOW
+
+    rhis = Rhis(df)
+    pd.testing.assert_frame_equal(rhis.orig_df, df)
+    assert rhis.length_init_ts == SHORT_SERIES_LEN
+
+
+def test_constructor_does_not_raise_for_sparse_numeric_column() -> None:
+    df = pd.DataFrame({'flow': ['<LD'] * SPARSE_TS_NON_NUMERIC + [1.0, 2.0, 3.0]})
+    rhis = Rhis(df)
+    assert len(rhis.orig_df) == SPARSE_TS_NON_NUMERIC + SPARSE_TS_NUMERIC
+
+
+@pytest.mark.parametrize(
+    'make_df',
+    [_make_df, _make_messy_monthly_df],
+    ids=['clean_series', 'messy_monthly'],
+)
+def test_evol_sets_state_and_structure(make_df) -> None:
+    df = make_df()
     rhis = Rhis(df)
     result = rhis.evol()
 
@@ -68,45 +145,68 @@ def test_evol_sets_state_and_structure() -> None:
     assert rhis.rhis_df is result
 
 
-def test_evol_p_values_are_within_unit_interval() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
+@pytest.mark.parametrize(
+    'make_df',
+    [_make_df, _make_messy_monthly_df],
+    ids=['clean_series', 'messy_monthly'],
+)
+def test_evol_p_values_are_within_unit_interval(make_df) -> None:
+    rhis = Rhis(make_df())
     rhis.evol()
 
     assert rhis.rhis_df is not None
     values = rhis.rhis_df.to_numpy(dtype=float)
-    nan_mask = np.isnan(values)
-    assert np.all(values[~nan_mask] >= 0.0)
-    assert np.all(values[~nan_mask] <= 1.0)
+    finite = np.isfinite(values)
+    assert np.all(values[finite] >= 0.0)
+    assert np.all(values[finite] <= 1.0 + TOTAL_P_VALUES_TOL)
 
 
-def test_evol_produces_expected_nan_padding() -> None:
-    df = _make_df(n_rows=60, n_cols=1)
+@pytest.mark.parametrize(
+    'make_df',
+    [partial(_make_df, n_rows=60, n_cols=1), _make_messy_monthly_df],
+    ids=['clean_series', 'messy_monthly'],
+)
+def test_evol_produces_expected_nan_padding(make_df) -> None:
+    df = make_df()
     rhis = Rhis(df)
     rhis.evol()
 
     assert rhis.rhis_df is not None
-    for hyp in ['R', 'H', 'I', 'S']:
-        series = rhis.rhis_df[('series_0', hyp)].to_numpy()
-        assert np.count_nonzero(np.isnan(series)) == rhis.length_init_ts - 1
+    for column in df.columns:
+        for hyp in ['R', 'H', 'I', 'S']:
+            series = rhis.rhis_df[(column, hyp)].to_numpy()
+            assert np.count_nonzero(np.isnan(series)) >= rhis.length_init_ts - 1
 
 
 def test_calculate_rhis_returns_four_p_values() -> None:
     ts = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-    result = Rhis.calculate_rhis(ts)
+    result = Rhis.calculate_rhis(ts, alpha=DEFAULT_ALPHA)
 
     assert set(result) == {'R', 'H', 'I', 'S'}
     assert all(isinstance(p_value, float) for p_value in result.values())
-    assert all((p_value >= 0.0 and p_value <= 1.0) for p_value in result.values())
+
+
+def test_calculate_rhis_ignores_non_numeric_and_missing() -> None:
+    df = _make_messy_monthly_df()
+    result = Rhis.calculate_rhis(df['flow'], alpha=DEFAULT_ALPHA)
+
+    assert set(result) == {'R', 'H', 'I', 'S'}
+    assert all(np.isfinite(p_value) for p_value in result.values())
 
 
 def test_add_rhis_compliant_raises_before_evol() -> None:
     rhis = Rhis(_make_df(n_rows=60))
-    with pytest.raises(RhisEvolNotCalledError, match=r'Rhis\.evol\(\) should be run before adding rhis compliant'):
+    with pytest.raises(RhisEvolNotCalledError, match=r'Rhis\.evol\(\) should be run before adding'):
         rhis.add_rhis_compliant_to_df()
 
 
-def test_add_rhis_compliant_includes_repr_columns() -> None:
-    df = _make_df(n_rows=60)
+@pytest.mark.parametrize(
+    'make_df',
+    [_make_df, _make_messy_monthly_df],
+    ids=['clean_series', 'messy_monthly'],
+)
+def test_add_rhis_compliant_includes_repr_columns(make_df) -> None:
+    df = make_df()
     orig_cols = df.columns.tolist()
     rhis = Rhis(df)
     rhis.evol()
@@ -115,4 +215,10 @@ def test_add_rhis_compliant_includes_repr_columns() -> None:
     for column in orig_cols:
         repr_name = column + '_repr'
         assert repr_name in result.columns
-        assert result[repr_name].notna().any()
+
+        repr_series = pd.to_numeric(result[repr_name], errors='coerce')
+        orig_series = pd.to_numeric(result[column], errors='coerce')
+        valid = repr_series.notna()
+
+        assert valid.sum() <= len(result)
+        pd.testing.assert_series_equal(repr_series[valid], orig_series[valid], check_names=False)

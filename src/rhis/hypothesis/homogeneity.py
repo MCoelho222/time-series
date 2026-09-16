@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import scipy.stats as sts
 
 from rhis.custom_types import MannWhitneyResults
 from rhis.utils import ranks_ties_corrected, split_into_parts, test_decision_normal
@@ -119,16 +118,6 @@ def mann_whitney(  # noqa: PLR0913
 
     if continuity:
         z = (abs(stat - mean_stat) - 0.5) / np.sqrt(var)
-
-    p = (1 - sts.norm.cdf(z))
-
-    if alternative == 'two-sided':
-        p = min(1.0, p * 2)
-        reject = p < alpha
-    if alternative == 'less':
-        reject = rank_sum1 < rank_sum2 and p < alpha
-    if alternative == 'greater':
-        reject = rank_sum1 > rank_sum2 and p < alpha
 
     decision = test_decision_normal(rank_sum1, rank_sum2, z, alternative, alpha)
 
