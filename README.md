@@ -53,7 +53,7 @@ If you are interested, please check out the article below.
 
 [Uncertainty analysis in the detection of trends, cycles, and shifts in water resources time series](https://link.springer.com/article/10.1007/s11269-019-02210-1)
 
-## Run these commands to see an example
+## Install and Run
 
 ```bash
 python -m venv .venv
@@ -67,8 +67,10 @@ python -m venv .venv
 pip install -e .[dev]
 ```
 
+To see an example:
+
 ```bash
-rhis-ts
+rhis
 ```
 
 ## Using RHIS
@@ -83,11 +85,3 @@ rhis = Rhis(df)
 rhis.evol(stat="min")
 rhis.plot()
 ```
-
-## Example
-
-### Representative Selection Using RHIS Evol
-
-In this example, the RHIS evolution was used to select a representative slice of the original time series in a dataframe. The selected slices (black painted dots) are compliant with the hypotheses of randomness, homogeneity, independence, and stationarity. The selected slice is appropriate for using in statistical methods, such as mean, standard deviation, and others.
-
-The dashed grey line represents the forward evolution of the minimum value among the four p-values from RHIS. The first value is the result from the application of the **RHIS** tests on the first 5 values and taken the minimum, and the last one is the result from the application on the entire time series.

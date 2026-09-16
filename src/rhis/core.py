@@ -127,8 +127,11 @@ class Rhis:
             'avg': np.mean,
             'max': np.max,
         }
+
+        rhis_values = list(evol_dict.values())
+
         for name, method in stats_dict.items():
-            evol_dict[name] = list(method(list(evol_dict.values()), axis=0, keepdims=True).ravel())
+            evol_dict[name] = list(method(rhis_values, axis=0, keepdims=True).ravel())
 
         return evol_dict
 
