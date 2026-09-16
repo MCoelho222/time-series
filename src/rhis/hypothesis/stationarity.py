@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats as sts
 
 from rhis.custom_types import MannKendallResults
-from rhis.utils import ranks_ties_corrected
+from rhis.utils import ranks_ties_corrected, test_decision_normal
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -75,17 +75,9 @@ def mann_kendall(
     if test_s < condition_value:
         z = abs((test_s + 1.)/sigma)
 
-    p = (1 - sts.norm.cdf(z))
+    decision = test_decision_normal(test_s, condition_value, z, alternative, alpha)
 
-    if alternative == 'two-sided':
-        p = p * 2
-        reject = p < alpha
-    if alternative == 'less':
-        reject = test_s < condition_value and p < alpha
-    if alternative == 'greater':
-        reject = test_s > condition_value and p < alpha
-
-    return MannKendallResults(test_s, round(p, 4), reject, alternative)
+    return MannKendallResults(test_s, round(decision.p_value, 4), decision.reject, alternative)
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]

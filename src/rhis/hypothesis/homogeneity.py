@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats as sts
 
 from rhis.custom_types import MannWhitneyResults
-from rhis.utils import ranks_ties_corrected, split_into_parts
+from rhis.utils import ranks_ties_corrected, split_into_parts, test_decision_normal
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -123,14 +123,16 @@ def mann_whitney(  # noqa: PLR0913
     p = (1 - sts.norm.cdf(z))
 
     if alternative == 'two-sided':
-        p = p * 2
+        p = min(1.0, p * 2)
         reject = p < alpha
     if alternative == 'less':
         reject = rank_sum1 < rank_sum2 and p < alpha
     if alternative == 'greater':
         reject = rank_sum1 > rank_sum2 and p < alpha
 
-    return MannWhitneyResults(stat, round(p, 4), reject, alternative)
+    decision = test_decision_normal(rank_sum1, rank_sum2, z, alternative, alpha)
+
+    return MannWhitneyResults(stat, round(decision.p_value, 4), decision.reject, alternative)
 
 
 if __name__ == "__main__":

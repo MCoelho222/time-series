@@ -67,10 +67,11 @@ def plot_rhis(orig_df: DataFrame, rhis_df: DataFrame, orig_cols: Index[str],  al
             loc='upper left',
         )
 
-        fig.suptitle(f'RHIS analysis: {series_name}', fontsize=14)
+        fig.suptitle(f'RHIS {series_name}', fontsize=14)
         fig.tight_layout()
 
-        plt.show()
+        filename = f"RHIS {series_name}.PNG"
+        plt.savefig(filename, bbox_inches="tight")
 
 
 def main() -> None:

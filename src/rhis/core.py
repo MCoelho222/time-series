@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 
 MIN_NUMERIC_VALUES = 10
+DEFAULT_ALPHA = 0.05
 
 
 class Rhis:
@@ -44,7 +45,7 @@ class Rhis:
         self.rhis_df: DataFrame | None = None
         self.rhis_stats_included = False
         self.is_rhis_complete = False
-        self.alpha = 0.05
+        self.alpha = DEFAULT_ALPHA
 
         self.length_init_ts = slice_init(len(self.orig_df))
 
@@ -100,7 +101,8 @@ class Rhis:
             df[(group[0][0], "max")] = df[group].max(axis=1)
 
 
-    def _rhis_evol_raw(self, ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
+    @staticmethod
+    def build_rhis_dict_from_timeseries(ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
         ts_np = ts.to_numpy()[::-1]
         slices = slices_to_evol(ts_np, length_init_ts)
         evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
@@ -137,7 +139,7 @@ class Rhis:
 
 
     def _ts_evol(self, ts: Series,*, include_rhis_stats: bool) -> None:
-        evol = self._rhis_evol_raw(ts, self.alpha, self.length_init_ts)
+        evol = self.build_rhis_dict_from_timeseries(ts, self.alpha, self.length_init_ts)
 
         if include_rhis_stats:
             evol = self._add_rhis_stats_to_evol(evol)
@@ -220,7 +222,7 @@ class Rhis:
 
 
     @staticmethod
-    def calculate_rhis(ts: TimeSeriesFlex, alpha: float) -> dict[str, float]:
+    def calculate_rhis(ts: TimeSeriesFlex, alpha: float = DEFAULT_ALPHA) -> dict[str, float]:
         ts = clean_numeric_array(ts)
 
         return  {
