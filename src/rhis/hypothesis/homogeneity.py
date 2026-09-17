@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from scipy.stats import mannwhitneyu
 from rhis.custom_types import MannWhitneyResults
-from rhis.utils import ranks_ties_corrected, split_into_parts, test_decision_normal
+from rhis.utils import ranks_with_ties_corrected, split_into_parts, test_decision_normal
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -13,9 +14,9 @@ if TYPE_CHECKING:
 
 def mann_whitney(  # noqa: PLR0913
         x: TimeSeriesFlex,
+        y: TimeSeriesFlex | None = None,
         alpha: float = 0.05,
         alternative: str = 'two-sided',
-        y: TimeSeriesFlex | None = None,
         *,
         continuity: bool = True,
         ties: bool = True,
@@ -88,14 +89,17 @@ def mann_whitney(  # noqa: PLR0913
     gs_sorted = np.sort(gs_concat)
 
     if np.all(gs_sorted == gs_sorted[0]):
+        print("all the same")
         reject = False
         return MannWhitneyResults(0, 1., reject, alternative)
 
     n = len(gs_concat)
-    ranks = np.sort(ranks_ties_corrected(gs_concat)) if ties else [i + 1 for i in range(n)]
+    ranks = np.sort(ranks_with_ties_corrected(gs_concat)) if ties else [i + 1 for i in range(n)]
+
     ranks_dict = dict(zip(gs_sorted, ranks))
-    g1_ranks = [ ranks_dict[value] for value in g1 ]
-    g2_ranks = [ ranks_dict[value] for value in g2 ]
+
+    g1_ranks = [ranks_dict[value] for value in g1]
+    g2_ranks = [ranks_dict[value] for value in g2]
 
     rank_sum1 = sum(g1_ranks)
     rank_sum2 = sum(g2_ranks)
@@ -126,4 +130,10 @@ def mann_whitney(  # noqa: PLR0913
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
+    ts_splitted = split_into_parts(ts, 2)
+    print(ts_splitted)
+    ts1 = ts_splitted[0]
+    ts2 = ts_splitted[1]
     print(mann_whitney(ts).p_value)
+    print(mannwhitneyu(ts1, ts2, method='asymptotic').pvalue)
+    print(mannwhitneyu(ts1, ts2, method='asymptotic').statistic)

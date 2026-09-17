@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from rhis.custom_types import MannKendallResults
-from rhis.utils import ranks_ties_corrected, test_decision_normal
+from rhis.utils import ranks_with_ties_corrected, test_decision_normal
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -58,7 +58,7 @@ def mann_kendall(
     signs_array = np.array(signs)
     test_s = float(len(signs_array[signs_array > 0]) - len(signs_array[signs_array < 0]))
 
-    ties_data = ranks_ties_corrected(ts, ties_data=True)['ties_groups_count']
+    ties_data = ranks_with_ties_corrected(ts, ties_data=True)['ties_groups_count']
 
     ties_factor = 0
     for value in ties_data:

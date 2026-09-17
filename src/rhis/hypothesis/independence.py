@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats as sts
 
 from rhis.custom_types import WaldWolfowitzResults
-from rhis.utils import ranks_ties_corrected, to_ranks
+from rhis.utils import ranks_with_ties_corrected, to_ranks
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -54,7 +54,7 @@ def wald_wolfowitz(
     if on_ranks and not ties:
         arr = np.array(to_ranks(arr))
     if on_ranks and ties:
-        arr = ranks_ties_corrected(arr)
+        arr = ranks_with_ties_corrected(arr)
 
     avg = np.mean(arr)
     arr = arr - avg

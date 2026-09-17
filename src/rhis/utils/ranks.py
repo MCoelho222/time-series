@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 def get_ties_index(ts: TimeSeriesFlex, start: int = 0) -> list[int]:
     """
-    Check if there equal numbers in sequence and get their ranks.
+    Checks if there are equal numbers in sequence and gets their ranks.
 
     Parameters
     ----------
@@ -45,7 +45,7 @@ def get_ties_index(ts: TimeSeriesFlex, start: int = 0) -> list[int]:
 
 
 @overload
-def ranks_ties_corrected(
+def ranks_with_ties_corrected(
     ts: TimeSeriesFlex,
     *,
     ties_data: Literal[True],
@@ -54,7 +54,7 @@ def ranks_ties_corrected(
 
 
 @overload
-def ranks_ties_corrected(
+def ranks_with_ties_corrected(
     ts: TimeSeriesFlex,
     *,
     ties_data: Literal[False] = False,
@@ -63,7 +63,7 @@ def ranks_ties_corrected(
 
 
 @overload
-def ranks_ties_corrected(
+def ranks_with_ties_corrected(
     ts: TimeSeriesFlex,
     *,
     ties_data: bool,
@@ -71,7 +71,7 @@ def ranks_ties_corrected(
     ...
 
 
-def ranks_ties_corrected(  # noqa: C901
+def ranks_with_ties_corrected(
     ts: TimeSeriesFlex,
     *,
     ties_data: bool = False,
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
     print()
 
-    print(ranks_ties_corrected(ts1, ties_data=True))
-    print(ranks_ties_corrected(ts2, ties_data=True))
-    print(ranks_ties_corrected(ts3, ties_data=True))
-    print(ranks_ties_corrected(ts4, ties_data=True))
+    print(ranks_with_ties_corrected(ts1, ties_data=True))
+    print(ranks_with_ties_corrected(ts2, ties_data=True))
+    print(ranks_with_ties_corrected(ts3, ties_data=True))
+    print(ranks_with_ties_corrected(ts4, ties_data=True))
