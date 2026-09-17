@@ -226,10 +226,10 @@ class Rhis:
         ts = clean_numeric_array(ts)
 
         return  {
-            'R': wallismoore(ts, alpha).p_value,
-            'H': mann_whitney(ts, alpha).p_value,
-            'I': wald_wolfowitz(ts, alpha).p_value,
-            'S': mann_kendall(ts, alpha).p_value,
+            'R': wallismoore(ts, alpha=alpha).p_value,
+            'H': mann_whitney(ts, alpha=alpha).p_value,
+            'I': wald_wolfowitz(ts, alpha=alpha).p_value,
+            'S': mann_kendall(ts, alpha=alpha).p_value,
         }
 
 
