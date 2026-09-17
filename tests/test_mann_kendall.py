@@ -9,8 +9,7 @@ def test_mann_kendall():
     """
     Test the Mann-Kendall test.
 
-    It uses an example from GILBERT (1987).
-    It is in page 212 in chapter 16 - Detecting and Estimating Trends.
+    Compares mann_kendall result with an example from GILBERT (1987) page 212 chapter 16 - Detecting and Estimating Trends.
 
     References
     ----------

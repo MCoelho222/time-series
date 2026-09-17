@@ -48,9 +48,9 @@ def mann_whitney(  # noqa: PLR0913
     References
     ----------
         HELSEL & HIRSCH (2002). Techniques of Water Resources
-        investigations fo the United States Geological Survey.Chapter 5 -
-        Statistical Methods in Water Resources.
-        Source: https://pubs.usgs.gov/twri/twri4a3/twri4a3.pdf
+        investigations fo the United States Geological Survey. Chapter 5 -
+        Statistical Methods in Water Resources, p.118.
+        Source: https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf 
 
     Parameters
     ----------

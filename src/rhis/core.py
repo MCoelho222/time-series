@@ -41,7 +41,7 @@ class Rhis:
                        "Statistical results will have no useful meaning.")
                 logger.debug(msg)
 
-        self.orig_df: DataFrame = df
+        self.orig_df: DataFrame = df.copy()
         self.rhis_df: DataFrame | None = None
         self.rhis_stats_included = False
         self.is_rhis_complete = False

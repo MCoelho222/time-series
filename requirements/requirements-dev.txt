@@ -3,3 +3,4 @@ mypy
 pandas-stubs
 pytest
 scipy-stubs
+ruff
