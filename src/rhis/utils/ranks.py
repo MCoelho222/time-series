@@ -71,7 +71,7 @@ def ranks_with_ties_corrected(
     ...
 
 
-def ranks_with_ties_corrected(
+def ranks_with_ties_corrected(  # noqa: C901
     ts: TimeSeriesFlex,
     *,
     ties_data: bool = False,

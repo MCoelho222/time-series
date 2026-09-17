@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-
 from scipy.stats import mannwhitneyu
+
 from rhis.custom_types import MannWhitneyResults
 from rhis.utils import ranks_with_ties_corrected, split_into_parts, test_decision_normal
 
@@ -51,7 +51,7 @@ def mann_whitney(  # noqa: PLR0913
         HELSEL & HIRSCH (2002). Techniques of Water Resources
         investigations fo the United States Geological Survey. Chapter 5 -
         Statistical Methods in Water Resources, p.118.
-        Source: https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf 
+        Source: https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf
 
     Parameters
     ----------
