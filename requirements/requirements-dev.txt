@@ -2,5 +2,7 @@ covdefaults
 mypy
 pandas-stubs
 pytest
+pytest-cov
 scipy-stubs
 ruff
+tox

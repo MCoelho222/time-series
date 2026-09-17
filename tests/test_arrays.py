@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.rhis.utils import clean_numeric_array, nans_nums_from_array
+from rhis.utils import clean_numeric_array, nans_nums_from_array
 
 # =====================================================================
 # clean_numeric_array

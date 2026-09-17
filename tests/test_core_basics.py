@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.rhis.core import Rhis
-from src.rhis.exceptions import RhisEvolNotCalledError
+from rhis.core import Rhis
+from rhis.exceptions import RhisEvolNotCalledError
 
 DEFAULT_ALPHA = 0.05
 SHORT_SERIES_LEN = 5

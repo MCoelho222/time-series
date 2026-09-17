@@ -2,14 +2,14 @@
 name = "rhis"
 description = "Methods for representativeness verification in times series analyses"
 authors = [{name = "Marcelo Coelho", email = "mcoelho2011@hotmail.com"}]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dynamic = [
   "dependencies",
@@ -44,7 +44,7 @@ rhis = "rhis:__main__.main"
 
 [tool.ruff]
   line-length = 128
-  target-version = "py38"
+  target-version = "py310"
 
   [tool.ruff.lint]
   select = [
@@ -132,10 +132,10 @@ rhis = "rhis:__main__.main"
     "testing/*" = ["D" ] # Ignore missing docs
 
 [tool.coverage.report]
-  fail_under = 70
+  fail_under = 90
 
 [tool.coverage.run]
-  source = ["src/"]
+  source = ["rhis"]
   plugins = ["covdefaults"]
 
 [tool.mypy]

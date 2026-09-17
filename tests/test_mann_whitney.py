@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.stats import mannwhitneyu
 
-from src.rhis.hypothesis import mann_whitney
+from rhis.hypothesis import mann_whitney
 
 
 def test_mann_whitney():

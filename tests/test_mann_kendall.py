@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import scipy.stats as sts
 
-from src.rhis.hypothesis import mann_kendall
+from rhis.hypothesis import mann_kendall
 
 
 def test_mann_kendall():

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.rhis.utils import p_value_normal
-from src.rhis.utils import test_decision_normal as decision_normal
+from rhis.utils import p_value_normal
+from rhis.utils import test_decision_normal as decision_normal
 
 ALPHA = 0.05
 Z_NULL = 0.0

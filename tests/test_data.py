@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.rhis.utils import slice_init, slices_to_evol, split_into_parts
+from rhis.utils import slice_init, slices_to_evol, split_into_parts
 
 SLICE_INIT_MAX_SHORT_SIZE = 100
 SLICE_INIT_LONG_SIZE = 101

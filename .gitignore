@@ -5,5 +5,10 @@ __pycache__/
 .vscode
 .mypy_cache/
 .pytest_cache/
-*.PNG
 .ruff_cache
+build/
+.tox/
+.coverage
+htmlcov/
+dist/
+*.PNG

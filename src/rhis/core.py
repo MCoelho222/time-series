@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,8 @@ from rhis.hypothesis.stationarity import mann_kendall
 from rhis.utils import clean_numeric_array, nans_nums_from_array, slice_init, slices_to_evol
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from numpy.typing import NDArray
     from pandas import DataFrame, Series
 

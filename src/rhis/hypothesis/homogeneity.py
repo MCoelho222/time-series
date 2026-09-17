@@ -96,7 +96,7 @@ def mann_whitney(  # noqa: PLR0913
     n = len(gs_concat)
     ranks = np.sort(ranks_with_ties_corrected(gs_concat)) if ties else [i + 1 for i in range(n)]
 
-    ranks_dict = dict(zip(gs_sorted, ranks))
+    ranks_dict = dict(zip(gs_sorted, ranks, strict=True))
 
     g1_ranks = [ranks_dict[value] for value in g1]
     g2_ranks = [ranks_dict[value] for value in g2]

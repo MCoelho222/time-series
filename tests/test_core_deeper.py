@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.rhis.core import Rhis
+from rhis.core import Rhis
 from tests.test_core_basics import _make_df, _make_messy_monthly_df
 
 STATS_METHODS = [('min', np.min), ('avg', np.mean), ('med', np.median), ('max', np.max)]

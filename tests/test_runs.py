@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.rhis.hypothesis import runs_test, wallismoore
+from rhis.hypothesis import runs_test, wallismoore
 
 
 def test_randomness():

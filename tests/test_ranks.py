@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.rhis.utils import get_ties_index, ranks_with_ties_corrected, to_ranks
+from rhis.utils import get_ties_index, ranks_with_ties_corrected, to_ranks
 
 NO_TIES_TS = [4.0, 7.0, 9.0]
 TIE_AT_START_TS = [4.0, 4.0, 8.0, 9.0]
