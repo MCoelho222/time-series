@@ -12,5 +12,5 @@ build/
 htmlcov/
 dist/
 hypothesis_testing_plots/
-RHIS_example_plots/
+rhis_plots/
 *.PNG

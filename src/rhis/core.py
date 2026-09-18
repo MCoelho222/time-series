@@ -12,6 +12,7 @@ from rhis.hypothesis.homogeneity import mann_whitney
 from rhis.hypothesis.independence import wald_wolfowitz
 from rhis.hypothesis.randomness import wallismoore
 from rhis.hypothesis.stationarity import mann_kendall
+from rhis.plotting import plot_rhis_evolution
 from rhis.utils import clean_numeric_array, nans_nums_from_array, slice_init, slices_to_evol
 
 if TYPE_CHECKING:
@@ -146,7 +147,7 @@ class Rhis:
         if include_rhis_stats:
             evol = self._add_rhis_stats_to_evol(evol)
 
-        if self.rhis_df is None:
+        if self.rhis_df is None:  # pragma: no cover - evol() always sets it before this loop
             msg = "RHIS dataframe has not been initialized."
             raise RuntimeError(msg)
 
@@ -221,6 +222,35 @@ class Rhis:
 
         logger.info("RHIS compliant data successfully included in the dataframe.")
         return self.orig_df
+
+
+    def plot(self, *, show_repr: bool = True) -> None:
+        """
+        Save one figure per analyzed time series to the `rhis_plots` directory.
+
+        Each figure shows the series values (and its RHIS-compliant repr when
+        `show_repr` is True) together with the evolution of the R, H, I and S
+        p-values and the alpha line. To include the representative series, run
+        `add_rhis_compliant_to_df()` before plotting.
+
+        Parameters
+        ----------
+            show_repr
+                Whether to plot the RHIS-compliant representative series when
+                it has been added to the dataframe.
+
+        Raises
+        ------
+            RhisEvolNotCalledError
+                If `evol()` has not been run yet.
+        """
+        raise_if_no_rhis_run(is_rhis_complete=self.is_rhis_complete)
+
+        if self.rhis_df is None:
+            msg = 'RHIS dataframe has not been initialized.'
+            raise RuntimeError(msg)
+
+        plot_rhis_evolution(self.orig_df, self.rhis_df, self.alpha, show_repr=show_repr)
 
 
     @staticmethod

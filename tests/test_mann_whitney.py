@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from scipy.stats import mannwhitneyu
 
 from rhis.hypothesis import mann_whitney
+
+P_VALUE_TOL = 1e-4
 
 
 def test_mann_whitney():
@@ -12,7 +15,7 @@ def test_mann_whitney():
 
     Example from the book Statistical Methods in Water Resources
 
-    Auhtor: Helsel & Hirsch
+    Author: Helsel & Hirsch
     Year: 2002
     Source: https://pubs.usgs.gov/twri/twri4a3/twri4a3.pdf
 
@@ -30,8 +33,8 @@ def test_mann_whitney():
 
     assert np.median(np.array(x)) == median_x
     assert np.median(np.array(y)) == median_y
-    assert result_a.p_value == expected_p
-    assert result_a.p_value == round(result_b.pvalue, 4)
+    assert result_a.p_value == pytest.approx(expected_p, abs=P_VALUE_TOL)
+    assert result_a.p_value == pytest.approx(result_b.pvalue, abs=P_VALUE_TOL)
 
 
 

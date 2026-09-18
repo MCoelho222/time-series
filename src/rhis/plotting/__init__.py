@@ -9,9 +9,12 @@ import matplotlib.pyplot as plt
 from rhis.utils import to_ranks
 
 if TYPE_CHECKING:
+    from pandas import DataFrame
+
     from rhis.custom_types import TimeSeriesFlex
 
 PLOTS_DIR = 'hypothesis_testing_plots'
+RHIS_PLOTS_DIR = 'rhis_plots'
 DEFAULT_ALPHA = 0.05
 
 
@@ -97,3 +100,98 @@ def plot_test(  # noqa: PLR0913
     plots_dir = Path(PLOTS_DIR)
     plots_dir.mkdir(exist_ok=True)
     plt.savefig(plots_dir / f'{filename}.PNG', bbox_inches='tight')
+
+
+def plot_rhis_evolution(
+    orig_df: DataFrame,
+    rhis_df: DataFrame,
+    alpha: float,
+    *,
+    show_repr: bool = True,
+) -> None:
+    """
+    Save one figure per analyzed time series to the `rhis_plots` directory.
+
+    Each figure shows the series values together with the evolution of the
+    R, H, I and S p-values, the RHIS-min envelope and the alpha line.
+
+    Parameters
+    ----------
+        orig_df
+            The original dataframe. Optional `*_repr` columns are plotted when
+            `show_repr` is True.
+        rhis_df
+            The dataframe with the R, H, I and S p-value evolutions produced by
+            `Rhis.evol()`.
+        alpha
+            The significance level used by the tests.
+        show_repr
+            Whether to plot the RHIS-compliant representative series, added by
+            `Rhis.add_rhis_compliant_to_df()`, when present.
+    """
+    orig_cols = [col for col in orig_df.columns if not col.endswith('_repr')]
+    alpha_label = f"alpha={alpha}"
+    hypotheses = ['R', 'H', 'I', 'S']
+    colors_default = {'R': 'black', 'H': 'cyan', 'I': 'green', 'S': 'blue'}
+
+    for series_name in orig_cols:
+        fig, pvalue_ax = plt.subplots(figsize=(8, 6))
+
+        series_ax = pvalue_ax.twinx()
+
+        series_ax.scatter(
+            orig_df.index,
+            orig_df[series_name],
+            color='black',
+            edgecolors='none',
+            alpha=0.2,
+            label=series_name,
+        )
+
+        if show_repr:
+            repr_name = series_name + '_repr'
+            if repr_name in orig_df.columns:
+                series_ax.scatter(
+                    orig_df.index,
+                    orig_df[repr_name],
+                    color='black',
+                    edgecolors='none',
+                    label=repr_name,
+                )
+
+        if (series_name, 'min') in rhis_df.columns:
+            pvalue_ax.plot(
+                rhis_df[(series_name, 'min')],
+                color='black',
+                linewidth=6,
+                alpha=0.2,
+                label='RHIS-min',
+            )
+        for hyp in hypotheses:
+            pvalue_ax.plot(rhis_df[(series_name, hyp)], color=colors_default[hyp], alpha=0.5, label=hyp)
+
+        pvalue_ax.axhline(alpha, color='red', linestyle='--', linewidth=1, label=alpha_label)
+
+        pvalue_ax.set_xlabel('Time')
+        pvalue_ax.set_ylabel('p-value')
+        pvalue_ax.set_ylim(0, 1)
+        series_ax.set_ylabel(series_name)
+        series_ax.set_ylim(0, 100)
+        series_ax.set_xlim(0, 100)
+
+        pvalue_handles, pvalue_labels = pvalue_ax.get_legend_handles_labels()
+        series_handles, series_labels = series_ax.get_legend_handles_labels()
+
+        pvalue_ax.legend(
+            pvalue_handles + series_handles,
+            pvalue_labels + series_labels,
+            loc='upper left',
+        )
+
+        fig.suptitle(f'RHIS {series_name}', fontsize=14)
+        fig.tight_layout()
+
+        plots_dir = Path(RHIS_PLOTS_DIR)
+        plots_dir.mkdir(exist_ok=True)
+        plt.savefig(plots_dir / f"RHIS {series_name}.PNG", bbox_inches='tight')
+        plt.close(fig)

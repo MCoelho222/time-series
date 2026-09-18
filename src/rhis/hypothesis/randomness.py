@@ -115,7 +115,7 @@ def runs_test(  # noqa: C901
         return RunsTestResults(0, 0.0, reject, alternative)
 
     decision = test_decision_normal(stat, stat_mean, z, alternative, alpha)
-    return RunsTestResults(stat, round(decision.p_value, 4), decision.reject, alternative)
+    return RunsTestResults(stat, decision.p_value, decision.reject, alternative)
 
 
 def wallismoore(
@@ -208,7 +208,7 @@ def wallismoore(
     z = (runs - expected_runs) / sigma
 
     decision = test_decision_normal(runs, expected_runs, z, alternative, alpha)
-    return WallisMooreResults(runs, round(decision.p_value, 4), decision.reject, alternative)
+    return WallisMooreResults(runs, decision.p_value, decision.reject, alternative)
 
 
 if __name__ == "__main__":

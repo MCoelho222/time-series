@@ -76,7 +76,7 @@ def mann_kendall(
 
     decision = test_decision_normal(test_s, condition_value, z, alternative, alpha)
 
-    return MannKendallResults(test_s, round(decision.p_value, 4), decision.reject, alternative)
+    return MannKendallResults(test_s, decision.p_value, decision.reject, alternative)
 
 if __name__ == "__main__":
     from rhis.plotting import plot_test
