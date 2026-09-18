@@ -110,8 +110,14 @@ class Rhis:
         slices = slices_to_evol(ts_np, length_init_ts)
         evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
 
+        ts_clean = clean_numeric_array(ts_np)
+        constant_series = bool(np.all(ts_clean == ts_clean[0]))
+        if constant_series:
+            msg = "Constant series detected; recording NaN independence p-values."
+            logger.debug(msg)
+
         for sli in slices:
-            rhis_dict = Rhis.calculate_rhis(sli, alpha)
+            rhis_dict = Rhis.calculate_rhis(sli, alpha, constant_series=constant_series)
             evol['R'].append(rhis_dict['R'])
             evol['H'].append(rhis_dict['H'])
             evol['I'].append(rhis_dict['I'])
@@ -254,13 +260,28 @@ class Rhis:
 
 
     @staticmethod
-    def calculate_rhis(ts: TimeSeriesFlex, alpha: float = DEFAULT_ALPHA) -> dict[str, float]:
+    def calculate_rhis(
+        ts: TimeSeriesFlex,
+        alpha: float = DEFAULT_ALPHA,
+        *,
+        constant_series: bool = False,
+    ) -> dict[str, float]:
         ts = clean_numeric_array(ts)
 
-        return  {
+        if constant_series or np.all(ts == ts[0]):
+            independence_p_value = np.nan
+        else:
+            try:
+                independence_p_value = wald_wolfowitz(ts, alpha=alpha, on_ranks=True).p_value
+            except ValueError:
+                msg = "Independence test undefined for this slice; recording NaN p-value."
+                logger.debug(msg)
+                independence_p_value = np.nan
+
+        return {
             'R': wallismoore(ts, alpha=alpha).p_value,
             'H': mann_whitney(ts, alpha=alpha).p_value,
-            'I': wald_wolfowitz(ts, alpha=alpha, on_ranks=True).p_value,
+            'I': independence_p_value,
             'S': mann_kendall(ts, alpha=alpha).p_value,
         }
 

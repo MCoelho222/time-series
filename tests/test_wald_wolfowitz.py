@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import numpy as np
+import pytest
+
 from rhis.hypothesis import wald_wolfowitz
+
+CONSTANT_SERIES = [5.0] * 10
+SHORT_SERIES = [1.0, 2.0]
+DEGENERATE_VARIANCE_SERIES = [1.0, 1.0, 5.0]
 
 
 def test_wald_wolfowitz():
@@ -39,3 +46,25 @@ def test_wald_wolfowitz():
     assert stat_err <= accepted_stat_err
     assert p_err <= accepted_p_err
     assert expected_reject == result.reject
+
+
+def test_wald_wolfowitz_raises_on_constant_series() -> None:
+    with pytest.raises(ValueError, match='at least two distinct values'):
+        wald_wolfowitz(CONSTANT_SERIES)
+
+
+def test_wald_wolfowitz_raises_on_non_finite_values() -> None:
+    series = [np.nan, 1.0, 2.0, 3.0, 4.0]
+
+    with pytest.raises(ValueError, match='only finite numeric values'):
+        wald_wolfowitz(series)
+
+
+def test_wald_wolfowitz_raises_on_short_series() -> None:
+    with pytest.raises(ValueError, match='at least 3 observations'):
+        wald_wolfowitz(SHORT_SERIES)
+
+
+def test_wald_wolfowitz_raises_on_degenerate_variance() -> None:
+    with pytest.raises(ValueError, match='too small'):
+        wald_wolfowitz(DEGENERATE_VARIANCE_SERIES)

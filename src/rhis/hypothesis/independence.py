@@ -11,6 +11,8 @@ from rhis.utils import ranks_with_ties_corrected, to_ranks
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
 
+MIN_SERIES_LENGTH = 3
+
 
 def wald_wolfowitz(
         ts: TimeSeriesFlex,
@@ -21,35 +23,66 @@ def wald_wolfowitz(
     """
     Wald & Wolfowitz test for serial correlation.
 
-    Test the hypothesis that x1, ..., xN are independent observations from the
-    same population.
-
-    References
-        Wald A. and Wolfowitz J. (1943). An exact test for randomness in the
-        non-parametric case based on serial correlation.
+    Tests the hypothesis that x1, ..., xN are independent observations from the
+    same population, using the circular serial correlation statistic of Wald &
+    Wolfowitz (1943). Because the series is centered and closed into a circle
+    (the first and last observations are neighbours), the statistic captures
+    both positive and negative serial dependence. Under the null hypothesis the
+    standardized statistic approximately follows a standard normal
+    distribution, and the null hypothesis is rejected when p_value < alpha.
 
     Parameters
     ----------
         ts
-            A time series to be tested.
+            A time series to be tested. It must contain at least three finite
+            numeric values and at least two distinct values.
         alpha
             The significance level for the test. Default is 0.05.
         on_ranks
-            If True, the test will be applied on the ranks.
+            If True, the test will be applied on the ranks of the series,
+            making it distribution-free.
         ties
             If True and on_ranks is True, the ranks will be corrected for ties.
 
-    Return
-    ------
+    Returns
+    -------
         A namedtuple
             ('WaldWolfowitzResults', ['statistic', 'p_value', 'reject'])
             The parameter 'reject' is of type bool. 'True' means the null
-            hypothesis was reject.
+            hypothesis was rejected.
+
+    Raises
+    ------
+        ValueError
+            If the series has fewer than three observations, contains
+            non-finite values, is constant, or yields a degenerate
+            (near-zero) variance for the serial correlation statistic.
+
+    See Also
+    --------
+        src/rhis/docs/hypothesis_tests/waldwolfowitz.md
+            Full description of the statistic, its distribution, and the
+            adaptations used here (circular closure, mean-centering, normal
+            approximation, ranks and ties handling).
+
+    References
+    ----------
+        Wald, A., & Wolfowitz, J. (1943). An exact test for randomness in the
+        non-parametric case based on serial correlation. Annals of Mathematical
+        Statistics, 14(4), 378-388.
     """
-    arr = np.array(ts)
+    arr = np.array(ts, dtype=float)
+    if not np.all(np.isfinite(arr)):
+        msg = "The time series must contain only finite numeric values."
+        raise ValueError(msg)
+
+    if len(arr) < MIN_SERIES_LENGTH:
+        msg = f"The time series must have at least {MIN_SERIES_LENGTH} observations."
+        raise ValueError(msg)
+
     if np.all(arr == arr[0]):
-        reject = True
-        return WaldWolfowitzResults(0, 0., reject)
+        msg = "The time series must contain at least two distinct values."
+        raise ValueError(msg)
 
     if on_ranks and not ties:
         arr = np.array(to_ranks(arr))
@@ -74,8 +107,8 @@ def wald_wolfowitz(
     var_r = a + b - c
     var_lim = 0.00001
     if abs(var_r) < var_lim:
-        reject = True
-        return WaldWolfowitzResults(0, 0., reject)
+        msg = "The variance of the serial correlation statistic is too small for the test to be meaningful."
+        raise ValueError(msg)
 
     z = abs((r - e_r) / np.sqrt(var_r))
     p = 2 * (1 - sts.norm.cdf(z))
