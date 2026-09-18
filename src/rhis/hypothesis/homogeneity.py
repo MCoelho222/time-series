@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.stats import mannwhitneyu
+import scipy.stats as sts
 
 from rhis.custom_types import MannWhitneyResults
-from rhis.utils import ranks_with_ties_corrected, split_into_parts, test_decision_normal
+from rhis.utils import ranks_with_ties_corrected, split_into_parts
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -73,9 +73,17 @@ def mann_whitney(  # noqa: PLR0913
     Returns
     -------
         A namedtuple
-            ('MannWhitneyResults', ['statistic', 'p_value', 'reject'])
+            ('MannWhitneyResults', ['statistic', 'p_value', 'reject',
+            'alternative'])
             The parameter 'reject' is of type bool. 'True' means the null
-            hypothesis was reject.
+            hypothesis was rejected. The parameter 'alternative' is a str
+            reflecting the alternative hypothesis used in the test.
+
+    See Also
+    --------
+        src/rhis/docs/hypothesis_tests/mann_whitney.md
+            Full description of the test statistic, its distribution,
+            corrections, and the interpretation of the results.
     """
     if y is None:
         data = split_into_parts(x, 2)
@@ -117,14 +125,28 @@ def mann_whitney(  # noqa: PLR0913
         var = ((n1 * n2) / ((n) * (n - 1))) * np.sum(np.array(ranks) ** 2) \
             - ((n1 * n2 * (n + 1) ** 2) / (4 * (n - 1)))
 
-    z = abs(stat - mean_stat) / np.sqrt(var)
+    # Follow scipy's orientation: for the 'greater' alternative use the
+    # U statistic tied to the ranks of the first group (u2), for 'less'
+    # its complement (u1). Two-sided uses the larger of the two and doubles
+    # the survival probability. This makes the one-sided p values depend on
+    # the observed direction of the difference.
+    if alternative == 'greater':
+        u = u2
+        f = 1
+    elif alternative == 'less':
+        u = u1
+        f = 1
+    else:
+        u = max(u1, u2)
+        f = 2
 
-    if continuity:
-        z = (abs(stat - mean_stat) - 0.5) / np.sqrt(var)
+    z = (u - mean_stat - (0.5 if continuity else 0)) / np.sqrt(var)
 
-    decision = test_decision_normal(rank_sum1, rank_sum2, z, alternative, alpha)
+    p = f * sts.norm.sf(z)
+    p = min(1.0, p)
+    reject = p < alpha
 
-    return MannWhitneyResults(stat, decision.p_value, decision.reject, alternative)
+    return MannWhitneyResults(stat, p, reject, alternative)
 
 
 if __name__ == "__main__":
@@ -139,4 +161,4 @@ if __name__ == "__main__":
     plot_test(ts, p_value, filename='homogeneity', title='Homogeneity Test Example')
 
     print(f"p-value: {p_value}")
-    print(mannwhitneyu(ts1, ts2, method='asymptotic').pvalue)
+    print(sts.mannwhitneyu(ts1, ts2, method='asymptotic').pvalue)
