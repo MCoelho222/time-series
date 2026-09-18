@@ -212,5 +212,9 @@ def wallismoore(
 
 
 if __name__ == "__main__":
+    from rhis.plotting import plot_test
+
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
-    print(wallismoore(ts).p_value)
+    p_value = wallismoore(ts).p_value
+    plot_test(ts, p_value, filename='randomness', title='Randomness Test Example')
+    print(f"p-value: {p_value}")

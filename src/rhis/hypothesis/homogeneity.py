@@ -128,9 +128,15 @@ def mann_whitney(  # noqa: PLR0913
 
 
 if __name__ == "__main__":
+    from rhis.plotting import plot_test
+
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
     ts_splitted = split_into_parts(ts, 2)
     ts1 = ts_splitted[0]
     ts2 = ts_splitted[1]
-    print(mann_whitney(ts).p_value)
+
+    p_value = mann_whitney(ts).p_value
+    plot_test(ts, p_value, filename='homogeneity', title='Homogeneity Test Example')
+
+    print(f"p-value: {p_value}")
     print(mannwhitneyu(ts1, ts2, method='asymptotic').pvalue)
