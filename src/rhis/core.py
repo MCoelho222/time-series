@@ -230,7 +230,7 @@ class Rhis:
         return  {
             'R': wallismoore(ts, alpha=alpha).p_value,
             'H': mann_whitney(ts, alpha=alpha).p_value,
-            'I': wald_wolfowitz(ts, alpha=alpha).p_value,
+            'I': wald_wolfowitz(ts, alpha=alpha, on_ranks=True).p_value,
             'S': mann_kendall(ts, alpha=alpha).p_value,
         }
 

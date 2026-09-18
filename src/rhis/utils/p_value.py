@@ -18,10 +18,7 @@ def p_value_normal(z: float) -> float:
     -------
         The p_value.
     """
-    z_abs = abs(z)
-    p_value = 1 - sts.norm.cdf(z_abs)
-
-    return p_value
+    return 1. - sts.norm.cdf(abs(z))
 
 
 def test_decision_normal(
@@ -60,7 +57,7 @@ def test_decision_normal(
     p = p_value_normal(z)
 
     if alternative == 'two-sided':
-        p = min(1.0, p * 2)
+        p = min(1.0, p * 2.)
         reject = p < alpha
     if alternative == 'less':
         reject = stat < stat_mean and p < alpha

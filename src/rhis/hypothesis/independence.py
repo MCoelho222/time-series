@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -82,9 +83,57 @@ def wald_wolfowitz(
 
     reject = p < alpha
 
-    return WaldWolfowitzResults(r, round(p, 4), reject)
+    return WaldWolfowitzResults(r, p, reject)
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    from rhis.utils import to_ranks
+
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
-    print(wald_wolfowitz(ts, on_ranks=False).p_value)
+
+    ts_ranks = to_ranks(ts)
+    ts_p = wald_wolfowitz(ts, on_ranks=False).p_value
+    ranks_p = wald_wolfowitz(ts, on_ranks=True).p_value
+
+    ts_name = 'series'
+    ts_color = 'blue'
+    ranks_color = 'k'
+    alpha_color = 'red'
+    alpha = 0.05
+
+    fig, pvalue_ax = plt.subplots(figsize=(8, 6))
+    series_ax = pvalue_ax.twinx()
+    series_ax.scatter(range(len(ts)), ts, color=ts_color, label=ts_name)
+    series_ax.scatter(range(len(ts_ranks)), ts_ranks, color=ranks_color, label='ranks')
+
+    pvalue_ax.axhline(ts_p, color=ts_color, linestyle='--', label=f'p-value ({ts_name}): {round(ts_p, 4)}')
+    pvalue_ax.axhline(ranks_p, color=ranks_color, linestyle='--', label=f'p-value (ranks): {round(ranks_p, 4)}')
+
+    pvalue_ax.axhline(alpha, color=alpha_color, label=f'alpha: {alpha}')
+
+    pvalue_ax.set_xlabel('Time')
+    pvalue_ax.set_ylabel('p-value')
+    pvalue_ax.set_ylim(0, 1)
+    series_ax.set_ylabel(ts_name)
+
+    pvalue_handles, pvalue_labels = pvalue_ax.get_legend_handles_labels()
+    series_handles, series_labels = series_ax.get_legend_handles_labels()
+
+    pvalue_ax.legend(
+                pvalue_handles + series_handles,
+                pvalue_labels + series_labels,
+                loc='upper left',
+            )
+    fig.suptitle('Independence Test Example', fontsize=12)
+    fig.tight_layout()
+
+    plots_dir = Path('hypothesis_testing_plots')
+    plots_dir.mkdir(exist_ok=True)
+    plt.savefig(plots_dir / 'independence.PNG', bbox_inches="tight")
+
+    # print(wald_wolfowitz(ts, on_ranks=True, ties=True).p_value)
+    print(f"p-value ({ts_name}): {ts_p}")
+    print(f"p-value (ranks): {ranks_p}")
+    # print(wald_wolfowitz(ts, on_ranks=False, ties=True).p_value)
 

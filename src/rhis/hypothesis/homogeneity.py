@@ -89,7 +89,6 @@ def mann_whitney(  # noqa: PLR0913
     gs_sorted = np.sort(gs_concat)
 
     if np.all(gs_sorted == gs_sorted[0]):
-        print("all the same")
         reject = False
         return MannWhitneyResults(0, 1., reject, alternative)
 
@@ -125,15 +124,13 @@ def mann_whitney(  # noqa: PLR0913
 
     decision = test_decision_normal(rank_sum1, rank_sum2, z, alternative, alpha)
 
-    return MannWhitneyResults(stat, round(decision.p_value, 4), decision.reject, alternative)
+    return MannWhitneyResults(stat, decision.p_value, decision.reject, alternative)
 
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
     ts_splitted = split_into_parts(ts, 2)
-    print(ts_splitted)
     ts1 = ts_splitted[0]
     ts2 = ts_splitted[1]
     print(mann_whitney(ts).p_value)
     print(mannwhitneyu(ts1, ts2, method='asymptotic').pvalue)
-    print(mannwhitneyu(ts1, ts2, method='asymptotic').statistic)

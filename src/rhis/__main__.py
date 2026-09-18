@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -52,7 +53,7 @@ def plot_rhis(orig_df: DataFrame, rhis_df: DataFrame, orig_cols: Index[str],  al
         pvalue_ax.axhline(alpha, color='red', linestyle='--', linewidth=1, label=alpha_label)
 
         pvalue_ax.set_xlabel('Time')
-        pvalue_ax.set_ylabel('p_value')
+        pvalue_ax.set_ylabel('p-value')
         pvalue_ax.set_ylim(0, 1)
         series_ax.set_ylabel(series_name)
         series_ax.set_ylim(0, 100)
@@ -71,7 +72,10 @@ def plot_rhis(orig_df: DataFrame, rhis_df: DataFrame, orig_cols: Index[str],  al
         fig.tight_layout()
 
         filename = f"RHIS {series_name}.PNG"
-        plt.savefig(filename, bbox_inches="tight")
+        plots_dir = Path('RHIS_example_plots')
+        plots_dir.mkdir(exist_ok=True)
+
+        plt.savefig(plots_dir / filename, bbox_inches="tight")
 
 
 def main() -> None:
@@ -87,21 +91,6 @@ def main() -> None:
 
     if rhis_df is not None:
         plot_rhis(orig_df, rhis_df, orig_cols, alpha)
-
-        repr_cols = ['series_A_repr', 'series_B_repr', 'series_C_repr', 'series_D_repr']
-        repr_df = rhis.orig_df[repr_cols]
-        repr_df_cols = repr_df.columns
-
-        repr_rhis = Rhis(repr_df)
-        repr_rhis.evol()
-        repr_rhis.add_rhis_compliant_to_df()
-
-        repr_orig_df = repr_rhis.orig_df
-        repr_rhis_df = repr_rhis.rhis_df
-        repr_alpha = repr_rhis.alpha
-
-        if repr_rhis_df is not None:
-            plot_rhis(repr_orig_df, repr_rhis_df, repr_df_cols, repr_alpha)
 
 if __name__ == "__main__":
     main()

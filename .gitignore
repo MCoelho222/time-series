@@ -11,4 +11,6 @@ build/
 .coverage
 htmlcov/
 dist/
+hypothesis_testing_plots/
+RHIS_example_plots/
 *.PNG
