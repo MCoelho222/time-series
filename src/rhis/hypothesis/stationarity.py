@@ -43,9 +43,12 @@ def mann_kendall(
     Return
     ------
         namedtuple
-            ('MannKendallResults', ['statistic', 'p_value', 'reject'])
+            ('MannKendallResults', ['statistic', 'p_value', 'reject',
+            'alternative'])
 
-            'reject' is boolean. If True, the null hypothesis was reject.
+            'reject' is boolean. If True, the null hypothesis was
+            rejected. 'alternative' reflects the alternative hypothesis
+            used in the test.
     """
     n = len(ts)
     ts = np.array(ts)

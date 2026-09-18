@@ -104,6 +104,23 @@ def test_decision_normal_one_sided_keeps_single_tailed_p_value() -> None:
     assert result.reject
 
 
+def test_decision_normal_one_sided_opposite_side_has_large_p_value() -> None:
+    """
+    When the statistic lies on the opposite side of the mean, the
+    one-sided p-value is large (above 0.5) instead of misleadingly
+    small, and the null hypothesis is not rejected.
+    """
+    less = decision_normal(3.0, 2.0, Z_STRONG, 'less', ALPHA)
+    greater = decision_normal(1.0, 2.0, Z_STRONG, 'greater', ALPHA)
+
+    assert less.p_value == pytest.approx(1.0 - 0.0228, abs=P_VALUE_TOL)
+    assert less.p_value > HALF_P_VALUE
+    assert not less.reject
+    assert greater.p_value == pytest.approx(1.0 - 0.0228, abs=P_VALUE_TOL)
+    assert greater.p_value > HALF_P_VALUE
+    assert not greater.reject
+
+
 def test_decision_normal_returns_all_fields() -> None:
     result = decision_normal(3.0, 2.0, Z_STRONG, 'greater', ALPHA)
     assert result.p_value == pytest.approx(0.0228, abs=P_VALUE_TOL)

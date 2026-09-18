@@ -18,34 +18,37 @@ def runs_test(  # noqa: C901
         continuity: bool = True
         ) -> RunsTestResults:
     """
-    Apply the Single-Sample Runs Test in on a time series. Uses the median as a
-    criteria for defining runs (up or down).
+    Apply the single-sample runs test on a time series.
 
-    hypotheses
+    Uses the median as the cut point: observations above the median get
+    a '+' sign, below it a '-' sign, and values equal to the median are
+    ignored. The statistic returned is the number of runs (maximal
+    sequences of consecutive equal signs).
+
+    Hypotheses
 
         Null hypothesis
-            H0: The events in the underlying population represented by the sample
-                series are distributed randomly.
+            H0: The events in the underlying population represented by the
+                sample series are distributed randomly.
 
         Alternative hypothesis
-            H1: (two-sided): The events in the underlying population represented by
-                the sample series are distributed nonrandomly.
-            H1: (less): The events in the underlying population represented by the
-                sample series are distributed non-randomly due to few runs.
-            H1: (greater): The events in the underlying population represented by
-                the sample series are distributed non-randomly due to too many runs.
+            H1: (two-sided): The events in the underlying population
+                represented by the sample series are distributed
+                nonrandomly.
+            H1: (less): Non-randomness due to too few runs.
+            H1: (greater): Non-randomness due to too many runs.
 
     References
-
-        SHESKIN (2004). Handbook of Parametric and Nonparametric Statistical
-        Procedures - Test 10. 3rd edition.
+    ----------
+        SHESKIN (2004). Handbook of Parametric and Nonparametric
+        Statistical Procedures - Test 10. 3rd edition.
 
     Parameters
     ----------
         ts
             The time series (1D list or numpy ndarray).
         alternative
-            One of the alternative hypo:
+            One of the alternative hypotheses:
                 two-sided
                 greater
                 less
@@ -58,9 +61,16 @@ def runs_test(  # noqa: C901
     Return
     ------
         A namedtuple
-            ('RunsTestResults', ['statistic', 'p_value', 'reject', 'alternative'])
-            The parameter 'reject' is of type bool. 'True' means the null hypothesis
-            was reject.
+            ('RunsTestResults', ['statistic', 'p_value', 'reject',
+            'alternative'])
+            The parameter 'reject' is of type bool. 'True' means the null
+            hypothesis was rejected.
+
+    See Also
+    --------
+        src/rhis/docs/hypothesis_tests/runs_test.md
+            Full description of the statistic, its distribution, and the
+            interpretation of the results.
     """
     ts = np.array(ts) if isinstance(ts, list) else ts
 
@@ -118,36 +128,62 @@ def runs_test(  # noqa: C901
     return RunsTestResults(stat, decision.p_value, decision.reject, alternative)
 
 
-def wallismoore(
+def wallis_moore(
         ts: TimeSeriesFlex,
         alpha: float = 0.05,
         alternative: str = 'two-sided',
     ) -> WallisMooreResults:
     """
-    Applies the Wallis and Moore (1941) runtest for randomness.
+    Apply the Wallis and Moore (1941) phase test for randomness.
 
-    Reference
-    ---------
-        SHESKIN (2004). Handbook of Parametric and Nonparametric Statistical
-        Procedures - Test 10. 3rd edition.
+    Consecutive observations are compared and each pair is classified as
+    a rise ('+') or a fall ('-'). Ties are handled by counting the phase
+    runs twice - once treating equal values as rises and once treating
+    them as falls - and averaging the two counts. The reported statistic
+    is that average number of phase runs. Under randomness its mean is
+    (2n-1)/3 and its standard deviation sqrt((16n-29)/90), with n the
+    number of observations.
+
+    Hypotheses
+
+        Null hypothesis
+            H0: The observations are random.
+        Alternative hypothesis
+            H1: (two-sided): The observations are not random.
+            H1: (less): Non-randomness due to too few phases.
+            H1: (greater): Non-randomness due to too many phases.
+
+    References
+    ----------
+        Wallis, W. A., & Moore, G. H. (1941). A significance test for
+        time series analysis. Journal of the American Statistical
+        Association, 36(215), 401-409.
 
     Parameters
     ----------
         ts
-            1D list or numpy array.
-        interval
-            1D list or tuple with length 2. The first object is the index referent
-            to the sample number to start the time series. The second number is last
-            sample number.
+            A time series (1D list or numpy ndarray).
         alpha
             The significance level for the test.
+        alternative
+            One of the alternative hypotheses:
+                two-sided
+                greater
+                less
 
     Return
-    -------
+    ------
         A namedtuple
-            ('WallisMooreResults', ['statistic', 'p_value', 'reject', 'alternative'])
-            The parameter 'reject' is of type bool. 'True' means the null hypothesis
-            was reject.
+            ('WallisMooreResults', ['statistic', 'p_value', 'reject',
+            'alternative'])
+            The parameter 'reject' is of type bool. 'True' means the null
+            hypothesis was rejected.
+
+    See Also
+    --------
+        src/rhis/docs/hypothesis_tests/wallis_moore.md
+            Full description of the phase statistic, its distribution,
+            and the interpretation of the results.
     """
     ts_arr = np.array(ts)
     if np.all(ts_arr == ts_arr[0]):
@@ -215,6 +251,6 @@ if __name__ == "__main__":
     from rhis.plotting import plot_test
 
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
-    p_value = wallismoore(ts).p_value
+    p_value = wallis_moore(ts).p_value
     plot_test(ts, p_value, filename='randomness', title='Randomness Test Example')
     print(f"p-value: {p_value}")

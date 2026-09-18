@@ -10,7 +10,7 @@ from pandas import DataFrame, Index
 from rhis.exceptions import raise_if_no_rhis_run
 from rhis.hypothesis.homogeneity import mann_whitney
 from rhis.hypothesis.independence import wald_wolfowitz
-from rhis.hypothesis.randomness import wallismoore
+from rhis.hypothesis.randomness import wallis_moore
 from rhis.hypothesis.stationarity import mann_kendall
 from rhis.plotting import plot_rhis_evolution
 from rhis.utils import clean_numeric_array, nans_nums_from_array, slice_init, slices_to_evol
@@ -279,7 +279,7 @@ class Rhis:
                 independence_p_value = np.nan
 
         return {
-            'R': wallismoore(ts, alpha=alpha).p_value,
+            'R': wallis_moore(ts, alpha=alpha).p_value,
             'H': mann_whitney(ts, alpha=alpha).p_value,
             'I': independence_p_value,
             'S': mann_kendall(ts, alpha=alpha).p_value,

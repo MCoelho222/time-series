@@ -60,7 +60,7 @@ def wald_wolfowitz(
 
     See Also
     --------
-        src/rhis/docs/hypothesis_tests/waldwolfowitz.md
+        src/rhis/docs/hypothesis_tests/wald_wolfowitz.md
             Full description of the statistic, its distribution, and the
             adaptations used here (circular closure, mean-centering, normal
             approximation, ranks and ties handling).
