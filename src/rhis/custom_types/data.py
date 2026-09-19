@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Sequence, TypedDict
+from collections.abc import Sequence
+from typing import TypedDict
 
 import numpy as np
 from numpy.typing import NDArray

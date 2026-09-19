@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+from loguru import logger
 
 if TYPE_CHECKING:
 
@@ -17,12 +18,25 @@ def split_into_parts(ts: TimeSeriesFlex, parts: int) -> list[TimeSeriesFlex]:
     ----------
         ts
             A list with items of any type.
+        parts
+            The number of parts to divide the series into.
 
     Return
     ------
         A list of lists with each part of the series respecting the original order.
+
+    Raises
+    ------
+        ValueError
+            If `parts` is greater than the length of the series.
     """
     size = len(ts)
+
+    if parts > size:
+        msg = f"The parameter 'parts' ({parts}) cannot be greater than the series length ({size})."
+        logger.debug(msg)
+        raise ValueError(msg)
+
     cut_index = size / parts
 
     if size % parts != 0:

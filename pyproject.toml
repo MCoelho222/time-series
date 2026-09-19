@@ -2,14 +2,14 @@
 name = "rhis"
 description = "Methods for representativeness verification in times series analyses"
 authors = [{name = "Marcelo Coelho", email = "mcoelho2011@hotmail.com"}]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dynamic = [
   "dependencies",
@@ -44,7 +44,9 @@ rhis = "rhis:__main__.main"
 
 [tool.ruff]
   line-length = 128
-  target-version = "py38"
+  target-version = "py310"
+
+  [tool.ruff.lint]
   select = [
     "AIR",    # Airflow
     "ASYNC",  # flake8-async
@@ -108,13 +110,13 @@ rhis = "rhis:__main__.main"
     quote-style = "single"
     skip-magic-trailing-comma = false
 
-  [tool.ruff.isort]
+  [tool.ruff.lint.isort]
     known-first-party = ["rhis", "tests", "testing"]
     split-on-trailing-comma = true
     required-imports = ["from __future__ import annotations"]
 
 
-  [tool.ruff.pylint]
+  [tool.ruff.lint.pylint]
     max-args = 5  # Recommended: 5
     max-branches = 12 # Recommended: 12
     max-returns = 6  # Recommended: 6
@@ -123,17 +125,17 @@ rhis = "rhis:__main__.main"
   [tool.ruff.lint.pydocstyle]
     convention = "numpy"
 
-  [tool.ruff.per-file-ignores]
+  [tool.ruff.lint.per-file-ignores]
     "tests/*" = ["S101", "D"] # allow assert, ignore missing docs
     "src/" = ["D"] # Ignore missing docs
     "__init__.py" = ["D", "F401"] # Ignore docstring, allow unused import****
     "testing/*" = ["D" ] # Ignore missing docs
 
 [tool.coverage.report]
-  fail_under = 70
+  fail_under = 90
 
 [tool.coverage.run]
-  source = ["src/"]
+  source = ["rhis"]
   plugins = ["covdefaults"]
 
 [tool.mypy]

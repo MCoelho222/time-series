@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats as sts
 
 from rhis.custom_types import MannWhitneyResults
-from rhis.utils import ranks_ties_corrected, split_into_parts
+from rhis.utils import ranks_with_ties_corrected, split_into_parts
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -14,9 +14,9 @@ if TYPE_CHECKING:
 
 def mann_whitney(  # noqa: PLR0913
         x: TimeSeriesFlex,
+        y: TimeSeriesFlex | None = None,
         alpha: float = 0.05,
         alternative: str = 'two-sided',
-        y: TimeSeriesFlex | None = None,
         *,
         continuity: bool = True,
         ties: bool = True,
@@ -49,9 +49,9 @@ def mann_whitney(  # noqa: PLR0913
     References
     ----------
         HELSEL & HIRSCH (2002). Techniques of Water Resources
-        investigations fo the United States Geological Survey.Chapter 5 -
-        Statistical Methods in Water Resources.
-        Source: https://pubs.usgs.gov/twri/twri4a3/twri4a3.pdf
+        investigations fo the United States Geological Survey. Chapter 5 -
+        Statistical Methods in Water Resources, p.118.
+        Source: https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf
 
     Parameters
     ----------
@@ -73,9 +73,17 @@ def mann_whitney(  # noqa: PLR0913
     Returns
     -------
         A namedtuple
-            ('MannWhitneyResults', ['statistic', 'p_value', 'reject'])
+            ('MannWhitneyResults', ['statistic', 'p_value', 'reject',
+            'alternative'])
             The parameter 'reject' is of type bool. 'True' means the null
-            hypothesis was reject.
+            hypothesis was rejected. The parameter 'alternative' is a str
+            reflecting the alternative hypothesis used in the test.
+
+    See Also
+    --------
+        src/rhis/docs/hypothesis_tests/mann_whitney.md
+            Full description of the test statistic, its distribution,
+            corrections, and the interpretation of the results.
     """
     if y is None:
         data = split_into_parts(x, 2)
@@ -93,10 +101,12 @@ def mann_whitney(  # noqa: PLR0913
         return MannWhitneyResults(0, 1., reject, alternative)
 
     n = len(gs_concat)
-    ranks = np.sort(ranks_ties_corrected(gs_concat)) if ties else [i + 1 for i in range(n)]
-    ranks_dict = dict(zip(gs_sorted, ranks))
-    g1_ranks = [ ranks_dict[value] for value in g1 ]
-    g2_ranks = [ ranks_dict[value] for value in g2 ]
+    ranks = np.sort(ranks_with_ties_corrected(gs_concat)) if ties else [i + 1 for i in range(n)]
+
+    ranks_dict = dict(zip(gs_sorted, ranks, strict=True))
+
+    g1_ranks = [ranks_dict[value] for value in g1]
+    g2_ranks = [ranks_dict[value] for value in g2]
 
     rank_sum1 = sum(g1_ranks)
     rank_sum2 = sum(g2_ranks)
@@ -115,24 +125,40 @@ def mann_whitney(  # noqa: PLR0913
         var = ((n1 * n2) / ((n) * (n - 1))) * np.sum(np.array(ranks) ** 2) \
             - ((n1 * n2 * (n + 1) ** 2) / (4 * (n - 1)))
 
-    z = abs(stat - mean_stat) / np.sqrt(var)
-
-    if continuity:
-        z = (abs(stat - mean_stat) - 0.5) / np.sqrt(var)
-
-    p = (1 - sts.norm.cdf(z))
-
-    if alternative == 'two-sided':
-        p = p * 2
-        reject = p < alpha
-    if alternative == 'less':
-        reject = rank_sum1 < rank_sum2 and p < alpha
+    # Follow scipy's orientation: for the 'greater' alternative use the
+    # U statistic tied to the ranks of the first group (u2), for 'less'
+    # its complement (u1). Two-sided uses the larger of the two and doubles
+    # the survival probability. This makes the one-sided p values depend on
+    # the observed direction of the difference.
     if alternative == 'greater':
-        reject = rank_sum1 > rank_sum2 and p < alpha
+        u = u2
+        f = 1
+    elif alternative == 'less':
+        u = u1
+        f = 1
+    else:
+        u = max(u1, u2)
+        f = 2
 
-    return MannWhitneyResults(stat, round(p, 4), reject, alternative)
+    z = (u - mean_stat - (0.5 if continuity else 0)) / np.sqrt(var)
+
+    p = f * sts.norm.sf(z)
+    p = min(1.0, p)
+    reject = p < alpha
+
+    return MannWhitneyResults(stat, p, reject, alternative)
 
 
 if __name__ == "__main__":
+    from rhis.plotting import plot_test
+
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
-    print(mann_whitney(ts).p_value)
+    ts_splitted = split_into_parts(ts, 2)
+    ts1 = ts_splitted[0]
+    ts2 = ts_splitted[1]
+
+    p_value = mann_whitney(ts).p_value
+    plot_test(ts, p_value, filename='homogeneity', title='Homogeneity Test Example')
+
+    print(f"p-value: {p_value}")
+    print(sts.mannwhitneyu(ts1, ts2, method='asymptotic').pvalue)
