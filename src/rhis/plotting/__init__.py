@@ -174,9 +174,11 @@ def plot_rhis_evolution(  # noqa: PLR0913
         series_ax.scatter(
             orig_df.index,
             orig_df[series_name],
-            color='black',
+            marker='o',
+            facecolors='0.5',
             edgecolors='none',
-            alpha=0.2,
+            alpha=0.5,
+            s=60,
             label=f'{series_name} ({series_period})',
         )
 
@@ -185,8 +187,10 @@ def plot_rhis_evolution(  # noqa: PLR0913
                 series_ax.scatter(
                     repr_df.index,
                     repr_df[series_name],
+                    marker='o',
                     color='black',
                     edgecolors='none',
+                    s=30,
                     label=f'{series_name}_repr ({repr_period})',
                 )
 
@@ -215,6 +219,10 @@ def plot_rhis_evolution(  # noqa: PLR0913
             pvalue_handles + series_handles,
             pvalue_labels + series_labels,
             loc='upper left',
+            ncols=3,
+            fontsize=9,
+            frameon=True,
+            edgecolor='none',
         )
 
         if figtitle is not None:
