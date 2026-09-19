@@ -222,3 +222,58 @@ def test_add_rhis_compliant_includes_repr_columns(make_df) -> None:
 
         assert valid.sum() <= len(result)
         pd.testing.assert_series_equal(repr_series[valid], orig_series[valid], check_names=False)
+
+
+def _retrieve_idxs(pvalues: list[float]) -> tuple[int, int]:
+    rhis = Rhis.__new__(Rhis)
+    return rhis._find_rhis_compliant_idxs(np.array(pvalues, dtype=float), alpha=DEFAULT_ALPHA)
+
+
+def test_find_rhis_compliant_idxs_full_series_compliant() -> None:
+    """
+    When the p-value of the complete series is at or above alpha, the
+    representative slice is the entire series.
+    """
+    pvalues = [0.8, 0.9, 0.7] * 5 + [np.nan] * 5
+    assert _retrieve_idxs(pvalues) == (0, len(pvalues))
+
+
+def test_find_rhis_compliant_idxs_alpha_boundary_keeps_full_series() -> None:
+    """
+    A first p-value exactly equal to alpha fails to reject, so the whole
+    series is kept (the 'at or above alpha' boundary is inclusive).
+    """
+    pvalues = [DEFAULT_ALPHA] + [0.9] * 6 + [np.nan] * 3
+    assert _retrieve_idxs(pvalues) == (0, len(pvalues))
+
+
+def test_find_rhis_compliant_idxs_longest_compliant_stretch() -> None:
+    """
+    The first stretch that fails to reject is the longest compliant one,
+    even when a shorter stretch rejects again.
+    """
+    pvalues = [0.03, 0.02, 0.06, 0.9, 0.04] + [np.nan] * 5
+    assert _retrieve_idxs(pvalues) == (2, len(pvalues))
+
+
+def test_find_rhis_compliant_idxs_stops_at_untestable_stretch() -> None:
+    """
+    When every testable stretch rejects, the boundary lands at the first
+    NaN (stretch too short to test).
+    """
+    pvalues = [0.01, 0.02] + [np.nan] * 8
+    assert _retrieve_idxs(pvalues) == (2, len(pvalues))
+
+
+def test_find_rhis_compliant_idxs_leading_nan_keeps_full_series() -> None:
+    """
+    An undefined p-value (NaN) cannot reject the hypothesis, so a NaN
+    first entry leaves the whole series as the representative slice.
+    """
+    pvalues = [np.nan, 0.9, 0.8] + [np.nan] * 7
+    assert _retrieve_idxs(pvalues) == (0, len(pvalues))
+
+
+def test_find_rhis_compliant_idxs_empty_series() -> None:
+    """An empty p-value series yields an empty representative slice."""
+    assert _retrieve_idxs([]) == (0, 0)

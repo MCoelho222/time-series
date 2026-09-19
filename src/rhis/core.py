@@ -13,7 +13,7 @@ from rhis.hypothesis.independence import wald_wolfowitz
 from rhis.hypothesis.randomness import wallis_moore
 from rhis.hypothesis.stationarity import mann_kendall
 from rhis.plotting import plot_rhis_evolution
-from rhis.utils import clean_numeric_array, nans_nums_from_array, slice_init, slices_to_evol
+from rhis.utils import clean_numeric_array, slice_init, slices_to_evol
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -75,22 +75,67 @@ class Rhis:
         df.loc[:, df_col + '_repr'] = full_ts
 
 
-    def _retrieve_rhis_ts_idxs(self, pvalue_ts: NDArray[np.float64], alpha: float, length_init_ts: int) -> tuple[int, int]:
-        pvalue_ts_nums = nans_nums_from_array(pvalue_ts)
+    def _find_rhis_compliant_idxs(self, pvalue_ts: NDArray[np.float64], alpha: float) -> tuple[int, int]:
+        """
+        Find the most recent stretch of the time series that is
+        RHIS-compliant: the longest possible slice that still ends at
+        the latest observation.
 
-        data = pvalue_ts[:]
-        alpha_arr = np.full(len(data), alpha)
-        idx = 0
-        is_rejection = data <= alpha_arr
+        The p-value series passed in is produced by the evolution
+        process triggered by Rhis.evol(); see the 'pvalue_ts'
+        description below for how to read it.
 
-        while is_rejection[idx]:
-            if idx == len(data) - 1:
-                break
-            idx += 1
+        Parameters
+        ----------
+            pvalue_ts
+                The evolution of p-values computed by Rhis.evol() for a
+                single time series (or for a derived statistic, like
+                'min', computed over its R, H, I and S p-values). The
+                value at index i is the p-value of the slice that starts
+                at position i and runs to the very end of the series.
+                Index 0 tests the complete series, and the trailing
+                entries are NaN because there are not enough
+                observations left to run the tests.
 
-        pvalue_ts_last = len(pvalue_ts_nums) + length_init_ts - 1
+            alpha
+                The significance level. A p-value greater than or equal
+                to alpha means that slice passed the tests (failed to
+                reject the null hypothesis), i.e., it is RHIS-compliant.
+
+        Returns
+        -------
+            A tuple (start, end) with indexes into the original series.
+            The slice running from 'start' to the end of the series is
+            the representative slice: the longest RHIS-compliant stretch
+            that ends at the most recent observation.
+        """
+        pvalue_ts_last = len(pvalue_ts)
+        if pvalue_ts_last == 0:
+            return (0, 0)
+
+        # The first entry tests the complete time series. When p >= alpha
+        # the whole series passed every RHIS test (or the selected one),
+        # so the representative slice is the entire series.
         if pvalue_ts[0] >= alpha:
             return (0, pvalue_ts_last)
+
+        # The complete series failed the tests, so the representative
+        # slice must be a slice that starts somewhere in the middle and
+        # runs to the end (i.e., it always ends at the most recent
+        # observation). These slices overlap in a simple way: the slice
+        # starting at position 1 contains the slice starting at position
+        # 2, which contains the one starting at 3, and so on. Each
+        # longer slice has already been tested and failed, so the FIRST
+        # slice that passes is, by definition, the LONGEST one that
+        # passes and still reaches the most recent observation.
+        #
+        # NaN entries mark slices too short to test; they act as a
+        # stopping boundary, just like a passing p-value. pvalue_ts[0]
+        # is always a real number here (the complete series is long
+        # enough to test), so we are guaranteed to find a stopping
+        # point somewhere after index 0.
+        fails_to_reject = ~(pvalue_ts <= alpha)  # p > alpha, or NaN
+        idx = int(np.argmax(fails_to_reject))
 
         return idx, pvalue_ts_last
 
@@ -223,7 +268,7 @@ class Rhis:
         for col in cols_orig_df:
             target_col = (col, rhis_stat)
             rhis_series = self.rhis_df[target_col].to_numpy()
-            cut_idxs = self._retrieve_rhis_ts_idxs(rhis_series, self.alpha, self.length_init_ts)
+            cut_idxs = self._find_rhis_compliant_idxs(rhis_series, self.alpha)
             self._include_rhis_compliant_ts_in_df(self.orig_df, cut_idxs, col)
 
         logger.info("RHIS compliant data successfully included in the dataframe.")
