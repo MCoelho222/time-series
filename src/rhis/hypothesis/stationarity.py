@@ -17,25 +17,45 @@ def mann_kendall(
         alternative: str = 'two-sided',
     ) -> MannKendallResults:
     """
-    Apply the Mann-Kendall test using the normal approximation,
-    which is valid for series with 10 or more elements (GILBERT, 1987).
+    Apply the Mann-Kendall test for monotonic trend using the normal
+    approximation, which is valid for series with 10 or more elements
+    (GILBERT, 1987).
+
+    The statistic is computed from all pairwise differences: each pair
+    of observations (i, j) with i < j contributes +1 if x_j is greater
+    than x_i, -1 if it is smaller, and 0 if they are tied. The trend is
+    measured by the sum S of these contributions.
+
+    Hypotheses
+
+        Null hypothesis
+            H0: There is no monotonic trend in the series; the
+                observations are randomly ordered over time.
+
+        Alternative hypothesis
+            H1: (two-sided): A monotonic trend is present.
+            H1: (less): A monotonic downward trend is present.
+            H1: (greater): A monotonic upward trend is present.
 
     References
     ----------
-        GILBERT, R. O. (1987). Statistical Methods for Environmental Pollution
-        Monitoring.
+        GILBERT, R. O. (1987). Statistical Methods for Environmental
+        Pollution Monitoring.
 
-        HELSEL & HIRSCH (2002). Techniques of Water Resources investigations of
-        the United States Geological Survey. Chapter 3 - Statistical Methods in
-        Water Resources.
+        HELSEL & HIRSCH (2002). Techniques of Water Resources
+        investigations of the United States Geological Survey. Chapter 3
+        - Statistical Methods in Water Resources.
 
     Parameters
     ----------
         ts
-            A time series to be tested.
+            A time series to be tested (1D list or numpy ndarray).
 
         alternative
-            'two-sided', 'greater', or 'less'.
+            One of the alternative hypotheses:
+                two-sided
+                greater
+                less
 
         alpha
             The significance level for the test. Default is 0.05.
@@ -45,10 +65,15 @@ def mann_kendall(
         namedtuple
             ('MannKendallResults', ['statistic', 'p_value', 'reject',
             'alternative'])
+            The parameter 'reject' is of type bool. 'True' means the
+            null hypothesis was rejected. 'alternative' reflects the
+            alternative hypothesis used in the test.
 
-            'reject' is boolean. If True, the null hypothesis was
-            rejected. 'alternative' reflects the alternative hypothesis
-            used in the test.
+    See Also
+    --------
+        src/rhis/docs/hypothesis_tests/mann_kendall.md
+            Full description of the statistic, its distribution, and the
+            interpretation of the results.
     """
     n = len(ts)
     ts = np.array(ts)
@@ -72,10 +97,10 @@ def mann_kendall(
     condition_value = 0.
     if test_s > condition_value:
         z = abs((test_s - 1.)/sigma)
-    if test_s == condition_value:
-        z = condition_value
-    if test_s < condition_value:
+    elif test_s < condition_value:
         z = abs((test_s + 1.)/sigma)
+    else:
+        z = condition_value
 
     decision = test_decision_normal(test_s, condition_value, z, alternative, alpha)
 
