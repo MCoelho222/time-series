@@ -108,6 +108,7 @@ def plot_rhis_evolution(
     alpha: float,
     *,
     show_repr: bool = True,
+    figtitle: str | None = None,
 ) -> None:
     """
     Save one figure per analyzed time series to the `rhis_plots` directory.
@@ -128,6 +129,10 @@ def plot_rhis_evolution(
         show_repr
             Whether to plot the RHIS-compliant representative series, added by
             `Rhis.add_rhis_compliant_to_df()`, when present.
+        figtitle
+            An optional figure title. When given, it is used as the title of
+            every saved figure; otherwise the title defaults to
+            `'RHIS <series>'`.
     """
     orig_cols = [col for col in orig_df.columns if not col.endswith('_repr')]
     alpha_label = f"alpha={alpha}"
@@ -176,8 +181,6 @@ def plot_rhis_evolution(
         pvalue_ax.set_ylabel('p-value')
         pvalue_ax.set_ylim(0, 1)
         series_ax.set_ylabel(series_name)
-        series_ax.set_ylim(0, 100)
-        series_ax.set_xlim(0, 100)
 
         pvalue_handles, pvalue_labels = pvalue_ax.get_legend_handles_labels()
         series_handles, series_labels = series_ax.get_legend_handles_labels()
@@ -188,7 +191,10 @@ def plot_rhis_evolution(
             loc='upper left',
         )
 
-        fig.suptitle(f'RHIS {series_name}', fontsize=14)
+        if figtitle is not None:
+            fig.suptitle(figtitle, fontsize=14)
+        else:
+            fig.suptitle(f'RHIS {series_name}', fontsize=14)
         fig.tight_layout()
 
         plots_dir = Path(RHIS_PLOTS_DIR)

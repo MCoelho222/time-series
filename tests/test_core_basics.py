@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 import pandas as pd
 import pytest
+from loguru import logger
 
 from rhis.core import Rhis
 from rhis.exceptions import RhisEvolNotCalledError
@@ -224,6 +225,78 @@ def test_add_rhis_compliant_includes_repr_columns(make_df) -> None:
         pd.testing.assert_series_equal(repr_series[valid], orig_series[valid], check_names=False)
 
 
+def test_calculate_repr_rhis_pvalues_raises_before_evol() -> None:
+    rhis = Rhis(_make_df(n_rows=60))
+    with pytest.raises(RhisEvolNotCalledError, match=r'Rhis\.evol\(\) should be run before adding'):
+        rhis.calculate_repr_rhis_pvalues()
+
+
+def test_calculate_repr_rhis_pvalues_raises_without_repr_columns() -> None:
+    rhis = Rhis(_make_df(n_rows=60))
+    rhis.evol()
+    with pytest.raises(ValueError, match=r'No RHIS representative series found'):
+        rhis.calculate_repr_rhis_pvalues()
+
+
+@pytest.mark.parametrize(
+    'make_df',
+    [_make_df, _make_messy_monthly_df],
+    ids=['clean_series', 'messy_monthly'],
+)
+def test_calculate_repr_rhis_pvalues_returns_calculate_rhis_p_values(make_df) -> None:
+    df = make_df()
+    orig_cols = df.columns.tolist()
+    rhis = Rhis(df)
+    rhis.evol()
+    rhis.add_rhis_compliant_to_df()
+
+    result = rhis.calculate_repr_rhis_pvalues()
+
+    assert set(result) == {column + '_repr' for column in orig_cols}
+    for column in orig_cols:
+        repr_name = column + '_repr'
+        expected = Rhis.calculate_rhis(rhis.orig_df[repr_name].to_numpy(), alpha=rhis.alpha)
+        assert result[repr_name] == pytest.approx(expected)
+
+
+def test_is_all_rhis_compliant_true_for_compliant_repr() -> None:
+    rhis = Rhis(_make_df(n_rows=60))
+    rhis.evol()
+    rhis.add_rhis_compliant_to_df()
+
+    assert rhis.is_all_rhis_compliant()
+
+
+def test_is_all_rhis_compliant_false_and_logs_rejection() -> None:
+    rhis = Rhis(_make_df(n_rows=60))
+    rhis.evol()
+
+    rhis.orig_df['series_0_repr'] = list(range(60))
+
+    records: list = []
+    sink_id = logger.add(records.append, level='DEBUG')
+    try:
+        result = rhis.is_all_rhis_compliant()
+    finally:
+        logger.remove(sink_id)
+
+    assert not result
+    assert any("'series_0_repr'" in str(record) and 'rejected' in str(record) for record in records)
+
+
+def test_is_all_rhis_compliant_raises_without_repr_columns() -> None:
+    rhis = Rhis(_make_df(n_rows=60))
+    rhis.evol()
+    with pytest.raises(ValueError, match=r'No RHIS representative series found'):
+        rhis.is_all_rhis_compliant()
+
+
+def test_is_all_rhis_compliant_raises_before_evol() -> None:
+    rhis = Rhis(_make_df(n_rows=60))
+    with pytest.raises(RhisEvolNotCalledError, match=r'Rhis\.evol\(\) should be run before adding'):
+        rhis.is_all_rhis_compliant()
+
+
 def _retrieve_idxs(pvalues: list[float]) -> tuple[int, int]:
     rhis = Rhis.__new__(Rhis)
     return rhis._find_rhis_compliant_idxs(np.array(pvalues, dtype=float), alpha=DEFAULT_ALPHA)
@@ -245,6 +318,16 @@ def test_find_rhis_compliant_idxs_alpha_boundary_keeps_full_series() -> None:
     """
     pvalues = [DEFAULT_ALPHA] + [0.9] * 6 + [np.nan] * 3
     assert _retrieve_idxs(pvalues) == (0, len(pvalues))
+
+
+def test_find_rhis_compliant_idxs_alpha_boundary_stops_in_interior() -> None:
+    """
+    An interior p-value exactly equal to alpha also fails to reject (the
+    boundary is inclusive for interior stretches, just like the first
+    entry), so the walk stops there.
+    """
+    pvalues = [0.03, 0.02, DEFAULT_ALPHA, 0.9] + [np.nan] * 6
+    assert _retrieve_idxs(pvalues) == (2, len(pvalues))
 
 
 def test_find_rhis_compliant_idxs_longest_compliant_stretch() -> None:
