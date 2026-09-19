@@ -8,7 +8,6 @@ import pytest
 from loguru import logger
 
 from rhis.core import Rhis
-from rhis.exceptions import RhisEvolNotCalledError
 
 DEFAULT_ALPHA = 0.05
 SHORT_SERIES_LEN = 5
@@ -84,7 +83,6 @@ def test_constructor_sets_default_attributes() -> None:
     rhis = Rhis(df)
     pd.testing.assert_frame_equal(rhis.orig_df, df)
     assert rhis.rhis_df is None
-    assert rhis.rhis_stats_included is False
     assert rhis.is_rhis_complete is False
     assert rhis.alpha == DEFAULT_ALPHA
 
@@ -136,13 +134,12 @@ def test_constructor_does_not_raise_for_sparse_numeric_column() -> None:
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_evol_sets_state_and_structure(make_df) -> None:
+def test_build_rhis_evol_df_sets_state_and_structure(make_df) -> None:
     df = make_df()
     rhis = Rhis(df)
-    result = rhis.evol()
+    result = rhis.build_rhis_evol_df()
 
     assert rhis.is_rhis_complete is True
-    assert rhis.rhis_stats_included is True
     assert rhis.rhis_df is result
 
 
@@ -151,9 +148,9 @@ def test_evol_sets_state_and_structure(make_df) -> None:
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_evol_p_values_are_within_unit_interval(make_df) -> None:
+def test_build_rhis_evol_df_p_values_are_within_unit_interval(make_df) -> None:
     rhis = Rhis(make_df())
-    rhis.evol()
+    rhis.build_rhis_evol_df()
 
     assert rhis.rhis_df is not None
     values = rhis.rhis_df.to_numpy(dtype=float)
@@ -167,10 +164,10 @@ def test_evol_p_values_are_within_unit_interval(make_df) -> None:
     [partial(_make_df, n_rows=60, n_cols=1), _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_evol_produces_expected_nan_padding(make_df) -> None:
+def test_build_rhis_evol_df_produces_expected_nan_padding(make_df) -> None:
     df = make_df()
     rhis = Rhis(df)
-    rhis.evol()
+    rhis.build_rhis_evol_df()
 
     assert rhis.rhis_df is not None
     for column in df.columns:
@@ -195,10 +192,12 @@ def test_calculate_rhis_ignores_non_numeric_and_missing() -> None:
     assert all(np.isfinite(p_value) for p_value in result.values())
 
 
-def test_add_rhis_compliant_raises_before_evol() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
-    with pytest.raises(RhisEvolNotCalledError, match=r'Rhis\.evol\(\) should be run before adding'):
-        rhis.add_rhis_compliant_to_df()
+def test_build_rhis_compliant_df_works_without_evol() -> None:
+    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
+    repr_df = rhis.build_rhis_compliant_df()
+
+    assert rhis.rhis_df is None
+    assert list(repr_df.columns) == ['series_0']
 
 
 @pytest.mark.parametrize(
@@ -206,36 +205,65 @@ def test_add_rhis_compliant_raises_before_evol() -> None:
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_add_rhis_compliant_includes_repr_columns(make_df) -> None:
+def test_build_rhis_compliant_df_has_padded_original_columns(make_df) -> None:
     df = make_df()
     orig_cols = df.columns.tolist()
     rhis = Rhis(df)
-    rhis.evol()
-    result = rhis.add_rhis_compliant_to_df()
 
+    repr_df = rhis.build_rhis_compliant_df()
+
+    assert list(repr_df.columns) == orig_cols
+    pd.testing.assert_index_equal(repr_df.index, df.index)
     for column in orig_cols:
-        repr_name = column + '_repr'
-        assert repr_name in result.columns
-
-        repr_series = pd.to_numeric(result[repr_name], errors='coerce')
-        orig_series = pd.to_numeric(result[column], errors='coerce')
+        orig_series = pd.to_numeric(df[column], errors='coerce')
+        repr_series = repr_df[column]
         valid = repr_series.notna()
-
-        assert valid.sum() <= len(result)
-        pd.testing.assert_series_equal(repr_series[valid], orig_series[valid], check_names=False)
-
-
-def test_calculate_repr_rhis_pvalues_raises_before_evol() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
-    with pytest.raises(RhisEvolNotCalledError, match=r'Rhis\.evol\(\) should be run before adding'):
-        rhis.calculate_repr_rhis_pvalues()
+        pd.testing.assert_series_equal(
+            repr_series[valid], orig_series[valid], check_names=False, check_dtype=False
+        )
 
 
-def test_calculate_repr_rhis_pvalues_raises_without_repr_columns() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
-    rhis.evol()
-    with pytest.raises(ValueError, match=r'No RHIS representative series found'):
-        rhis.calculate_repr_rhis_pvalues()
+def test_build_rhis_compliant_df_defaults_to_min_and_keeps_compliant_series() -> None:
+    """A random series is fully RHIS-compliant: the whole series is kept."""
+    df = _make_df(n_rows=60, n_cols=1)
+    rhis = Rhis(df)
+
+    repr_df = rhis.build_rhis_compliant_df()
+
+    for column in df.columns:
+        orig_series = pd.to_numeric(df[column], errors='coerce')
+        repr_series = repr_df[column]
+        assert repr_series.notna().all()
+        pd.testing.assert_series_equal(
+            repr_series, orig_series.astype(float), check_names=False, check_dtype=False
+        )
+
+
+@pytest.mark.parametrize(
+    'stat',
+    ['min', 'mean', 'median', 'max'],
+)
+def test_build_rhis_compliant_df_respects_stat(stat) -> None:
+    rng = np.random.default_rng(3)
+    df = pd.DataFrame({'flow': rng.normal(50, 15, 60)})
+    rhis = Rhis(df)
+
+    repr_df = rhis.build_rhis_compliant_df(stat=stat)
+
+    expected_evol = rhis.build_rhis_dict_from_timeseries(
+        rhis.orig_df['flow'], rhis.alpha, rhis.length_init_ts
+    )
+    stat_pvalues = np.asarray(rhis._add_stat_to_evol(expected_evol, stat)[stat], dtype=float)
+    expected_idxs = rhis._find_rhis_compliant_idxs(stat_pvalues, rhis.alpha)
+    expected = Rhis._slice_and_pad(rhis.orig_df['flow'].to_numpy(dtype=float), expected_idxs)
+
+    np.testing.assert_allclose(repr_df['flow'].to_numpy(dtype=float), expected, equal_nan=True)
+
+
+def test_build_rhis_compliant_df_rejects_invalid_stat() -> None:
+    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
+    with pytest.raises(ValueError, match=r"Invalid stat 'min2'"):
+        rhis.build_rhis_compliant_df(stat='min2')
 
 
 @pytest.mark.parametrize(
@@ -245,56 +273,44 @@ def test_calculate_repr_rhis_pvalues_raises_without_repr_columns() -> None:
 )
 def test_calculate_repr_rhis_pvalues_returns_calculate_rhis_p_values(make_df) -> None:
     df = make_df()
-    orig_cols = df.columns.tolist()
     rhis = Rhis(df)
-    rhis.evol()
-    rhis.add_rhis_compliant_to_df()
+    repr_df = rhis.build_rhis_compliant_df()
 
-    result = rhis.calculate_repr_rhis_pvalues()
+    result = rhis.calculate_repr_rhis_pvalues(repr_df)
 
-    assert set(result) == {column + '_repr' for column in orig_cols}
-    for column in orig_cols:
-        repr_name = column + '_repr'
-        expected = Rhis.calculate_rhis(rhis.orig_df[repr_name].to_numpy(), alpha=rhis.alpha)
-        assert result[repr_name] == pytest.approx(expected)
+    assert set(result) == set(df.columns)
+    for column in df.columns:
+        expected = Rhis.calculate_rhis(repr_df[column].to_numpy(), alpha=rhis.alpha)
+        assert result[column] == pytest.approx(expected)
+
+
+def test_calculate_repr_rhis_pvalues_on_empty_repr_df() -> None:
+    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
+    empty = pd.DataFrame(index=rhis.orig_df.index)
+    assert rhis.calculate_repr_rhis_pvalues(empty) == {}
 
 
 def test_is_all_rhis_compliant_true_for_compliant_repr() -> None:
     rhis = Rhis(_make_df(n_rows=60))
-    rhis.evol()
-    rhis.add_rhis_compliant_to_df()
+    repr_df = rhis.build_rhis_compliant_df()
 
-    assert rhis.is_all_rhis_compliant()
+    assert rhis.is_all_rhis_compliant(repr_df)
 
 
 def test_is_all_rhis_compliant_false_and_logs_rejection() -> None:
     rhis = Rhis(_make_df(n_rows=60))
-    rhis.evol()
-
-    rhis.orig_df['series_0_repr'] = list(range(60))
+    repr_df = rhis.build_rhis_compliant_df()
+    repr_df['series_0'] = list(range(60))
 
     records: list = []
     sink_id = logger.add(records.append, level='DEBUG')
     try:
-        result = rhis.is_all_rhis_compliant()
+        result = rhis.is_all_rhis_compliant(repr_df)
     finally:
         logger.remove(sink_id)
 
     assert not result
-    assert any("'series_0_repr'" in str(record) and 'rejected' in str(record) for record in records)
-
-
-def test_is_all_rhis_compliant_raises_without_repr_columns() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
-    rhis.evol()
-    with pytest.raises(ValueError, match=r'No RHIS representative series found'):
-        rhis.is_all_rhis_compliant()
-
-
-def test_is_all_rhis_compliant_raises_before_evol() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
-    with pytest.raises(RhisEvolNotCalledError, match=r'Rhis\.evol\(\) should be run before adding'):
-        rhis.is_all_rhis_compliant()
+    assert any("'series_0'" in str(record) and 'rejected' in str(record) for record in records)
 
 
 def _retrieve_idxs(pvalues: list[float]) -> tuple[int, int]:

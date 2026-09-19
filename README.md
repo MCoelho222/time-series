@@ -82,6 +82,7 @@ from rhis import Rhis
 df = pd.read_csv("data.csv")
 
 rhis = Rhis(df)
-rhis.evol(stat="min")
-rhis.plot()
+rhis.build_rhis_evol_df()
+repr_df = rhis.build_rhis_compliant_df()
+rhis.plot_evolution(repr_df=repr_df)
 ```

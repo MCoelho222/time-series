@@ -7,6 +7,6 @@ from rhis.exceptions import RhisEvolNotCalledError
 
 def raise_if_no_rhis_run(*, is_rhis_complete: bool) -> None:
     if not is_rhis_complete:
-        msg = "Rhis.evol() should be run before adding rhis compliant data to the dataframe."
+        msg = "Rhis.build_rhis_evol_df() should be run before adding rhis compliant data to the dataframe."
         logger.debug(msg)
         raise RhisEvolNotCalledError(msg)

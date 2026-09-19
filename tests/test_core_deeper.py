@@ -7,7 +7,7 @@ import pytest
 from rhis.core import Rhis
 from tests.test_core_basics import _make_df, _make_messy_monthly_df
 
-STATS_METHODS = [('min', np.min), ('avg', np.mean), ('med', np.median), ('max', np.max)]
+STATS_METHODS = [('min', np.min), ('mean', np.mean), ('median', np.median), ('max', np.max)]
 CUSTOM_LENGTH_INIT_TS = 15
 
 
@@ -16,10 +16,10 @@ CUSTOM_LENGTH_INIT_TS = 15
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_evol_stats_columns_are_aggregates_over_rhis(make_df) -> None:
+def test_build_rhis_evol_df_stats_columns_are_aggregates_over_rhis(make_df) -> None:
     df = make_df()
     rhis = Rhis(df)
-    rhis.evol()
+    rhis.build_rhis_evol_df()
 
     assert rhis.rhis_df is not None
     for column in df.columns:
@@ -36,22 +36,22 @@ def test_evol_stats_columns_are_aggregates_over_rhis(make_df) -> None:
             np.testing.assert_allclose(actual, expected, equal_nan=True)
 
 
-def test_evol_without_rhis_stats() -> None:
+def test_build_rhis_evol_df_without_rhis_stats() -> None:
     rhis = Rhis(_make_df())
-    rhis.evol(include_rhis_stats=False)
+    rhis.build_rhis_evol_df(include_rhis_stats=False)
 
     assert rhis.rhis_df is not None
     assert ('series_0', 'min') not in rhis.rhis_df.columns
 
 
-def test_evol_with_custom_length_init_ts() -> None:
+def test_build_rhis_evol_df_with_custom_length_init_ts() -> None:
     rhis = Rhis(_make_df())
-    rhis.evol(length_init_ts=CUSTOM_LENGTH_INIT_TS)
+    rhis.build_rhis_evol_df(length_init_ts=CUSTOM_LENGTH_INIT_TS)
 
     assert rhis.length_init_ts == CUSTOM_LENGTH_INIT_TS
 
 
-def test_evol_handles_constant_series_with_nan() -> None:
+def test_build_rhis_evol_df_handles_constant_series_with_nan() -> None:
     rng = np.random.default_rng(7)
     df = pd.DataFrame({
         'constant': [5.0] * 60,
@@ -59,7 +59,7 @@ def test_evol_handles_constant_series_with_nan() -> None:
     })
 
     rhis = Rhis(df)
-    rhis.evol()
+    rhis.build_rhis_evol_df()
 
     assert rhis.rhis_df is not None
     fill = rhis.length_init_ts - 1
@@ -78,11 +78,11 @@ def test_calculate_rhis_returns_nan_for_constant_series() -> None:
     assert all(np.isfinite(result[hyp]) for hyp in 'RHS')
 
 
-def test_add_rhis_compliant_includes_stats_when_missing() -> None:
-    rhis = Rhis(_make_df())
-    rhis.evol(include_rhis_stats=False)
-    rhis.add_rhis_compliant_to_df('min')
+def test_build_rhis_compliant_df_derives_stat_without_rhis_evol() -> None:
+    """The repr df is derivable without building rhis_df at all."""
+    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
 
-    assert rhis.rhis_df is not None
-    assert ('series_0', 'min') in rhis.rhis_df.columns
-    assert 'series_0_repr' in rhis.orig_df.columns
+    repr_df = rhis.build_rhis_compliant_df('min')
+
+    assert rhis.rhis_df is None
+    assert set(repr_df.columns) == {'series_0'}
