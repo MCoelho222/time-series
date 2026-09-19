@@ -126,15 +126,16 @@ class Rhis:
         # starting at position 1 contains the slice starting at position
         # 2, which contains the one starting at 3, and so on. Each
         # longer slice has already been tested and failed, so the FIRST
-        # slice that passes is, by definition, the LONGEST one that
-        # passes and still reaches the most recent observation.
+        # slice that passes (p-value at or above alpha) is, by definition,
+        # the LONGEST one that passes and still reaches the most recent
+        # observation.
         #
         # NaN entries mark slices too short to test; they act as a
         # stopping boundary, just like a passing p-value. pvalue_ts[0]
         # is always a real number here (the complete series is long
         # enough to test), so we are guaranteed to find a stopping
         # point somewhere after index 0.
-        fails_to_reject = ~(pvalue_ts <= alpha)  # p > alpha, or NaN
+        fails_to_reject = ~(pvalue_ts < alpha)  # p >= alpha, or NaN
         idx = int(np.argmax(fails_to_reject))
 
         return idx, pvalue_ts_last
@@ -275,7 +276,94 @@ class Rhis:
         return self.orig_df
 
 
-    def plot(self, *, show_repr: bool = True) -> None:
+    def calculate_repr_rhis_pvalues(self) -> dict[str, dict[str, float]]:
+        """
+        Apply the RHIS tests to the RHIS-compliant (representative)
+        series that were added to self.orig_df by
+        add_rhis_compliant_to_df().
+
+        For each representative series (the '<col>_repr' columns), this
+        runs Rhis.calculate_rhis, stores the resulting p-values in a new
+        dictionary, and returns it.
+
+        Parameters
+        ----------
+            (none)
+
+        Return
+        ------
+            A dictionary mapping every '<col>_repr' column name to its
+            RHIS p-values {'R', 'H', 'I', 'S'}.
+
+        Raises
+        ------
+            RhisEvolNotCalledError
+                If Rhis.evol() has not been run yet.
+            ValueError
+                If no representative series are present; run
+                Rhis.add_rhis_compliant_to_df() first.
+        """
+        raise_if_no_rhis_run(is_rhis_complete=self.is_rhis_complete)
+
+        repr_cols = [col for col in self.orig_df.columns if col.endswith('_repr')]
+        if not repr_cols:
+            msg = ("No RHIS representative series found in the dataframe. "
+                   "Run Rhis.add_rhis_compliant_to_df() to add them first.")
+            logger.debug(msg)
+            raise ValueError(msg)
+
+        results: dict[str, dict[str, float]] = {}
+        for repr_name in repr_cols:
+            results[repr_name] = Rhis.calculate_rhis(self.orig_df[repr_name].to_numpy(), alpha=self.alpha)
+
+        return results
+
+
+    def is_all_rhis_compliant(self) -> bool:
+        """
+        Check whether every RHIS-compliant (representative) series
+        passes all RHIS tests at the current significance level.
+
+        For each '<col>_repr' column this inspects the p-values returned
+        by calculate_repr_rhis_pvalues. A test is considered to have
+        rejected the null hypothesis when its p-value is less than alpha;
+        an undefined p-value (NaN, e.g. for the independence test on a
+        constant series) is never a rejection.
+
+        Parameters
+        ----------
+            (none)
+
+        Return
+        ------
+            True when every hypothesis of every representative series
+            fails to reject; False otherwise. For every rejected test a
+            debug message is logged naming the column and the
+            hypothesis.
+
+        Raises
+        ------
+            RhisEvolNotCalledError
+                If Rhis.evol() has not been run yet.
+            ValueError
+                If no representative series are present; run
+                Rhis.add_rhis_compliant_to_df() first.
+        """
+        pvalues = self.calculate_repr_rhis_pvalues()
+
+        all_compliant = True
+        for repr_name, hyp_pvalues in pvalues.items():
+            for hyp, p_value in hyp_pvalues.items():
+                if p_value < self.alpha:
+                    all_compliant = False
+                    msg = (f"Column '{repr_name}' rejected hypothesis '{hyp}' "
+                           f"(p = {p_value:.4f} < alpha = {self.alpha}).")
+                    logger.debug(msg)
+
+        return all_compliant
+
+
+    def plot(self, *, show_repr: bool = True, figtitle: str | None = None) -> None:
         """
         Save one figure per analyzed time series to the `rhis_plots` directory.
 
@@ -289,6 +377,10 @@ class Rhis:
             show_repr
                 Whether to plot the RHIS-compliant representative series when
                 it has been added to the dataframe.
+            figtitle
+                An optional title for the saved figures. When given, it is used
+                instead of the default `'RHIS <series>'`; see
+                `plot_rhis_evolution`.
 
         Raises
         ------
@@ -301,7 +393,7 @@ class Rhis:
             msg = 'RHIS dataframe has not been initialized.'
             raise RuntimeError(msg)
 
-        plot_rhis_evolution(self.orig_df, self.rhis_df, self.alpha, show_repr=show_repr)
+        plot_rhis_evolution(self.orig_df, self.rhis_df, self.alpha, show_repr=show_repr, figtitle=figtitle)
 
 
     @staticmethod
