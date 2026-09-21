@@ -48,12 +48,12 @@ def _make_messy_monthly_df() -> pd.DataFrame:
     df = pd.DataFrame({'flow': values}, index=index, dtype=object)
     df = df.drop(pd.to_datetime(DROPPED_MONTHS))
 
-    for date, value in TEXT_MARKERS.items():
-        df.loc[date, 'flow'] = value
-    for date, value in MISSING_VALUES.items():
-        df.loc[date, 'flow'] = value
-    for date, value in OUTLIERS.items():
-        df.loc[date, 'flow'] = value
+    for date, marker in TEXT_MARKERS.items():
+        df.loc[date, 'flow'] = marker
+    for date, missing in MISSING_VALUES.items():
+        df.loc[date, 'flow'] = missing
+    for date, outlier in OUTLIERS.items():
+        df.loc[date, 'flow'] = outlier
 
     return df
 
@@ -186,7 +186,7 @@ def test_calculate_rhis_returns_four_p_values() -> None:
 
 def test_calculate_rhis_ignores_non_numeric_and_missing() -> None:
     df = _make_messy_monthly_df()
-    result = Rhis.calculate_rhis(df['flow'], alpha=DEFAULT_ALPHA)
+    result = Rhis.calculate_rhis(df['flow'].to_list(), alpha=DEFAULT_ALPHA)
 
     assert set(result) == {'R', 'H', 'I', 'S'}
     assert all(np.isfinite(p_value) for p_value in result.values())
@@ -254,10 +254,10 @@ def test_build_rhis_compliant_df_respects_stat(stat) -> None:
         rhis.orig_df['flow'], rhis.alpha, rhis.length_init_ts
     )
     if stat == 'min':
-        stat_pvalues = list(np.min(list(expected_evol.values()), axis=0))
+        stat_values = list(np.min(list(expected_evol.values()), axis=0))
     else:
-        stat_pvalues = expected_evol[stat]
-    stat_pvalues = np.asarray(stat_pvalues, dtype=float)
+        stat_values = expected_evol[stat]
+    stat_pvalues = np.asarray(stat_values, dtype=float)
     expected_idxs = rhis._find_rhis_compliant_idxs(stat_pvalues, rhis.alpha)
     expected = Rhis._slice_and_pad(rhis.orig_df['flow'].to_numpy(dtype=float), expected_idxs)
 
@@ -267,7 +267,7 @@ def test_build_rhis_compliant_df_respects_stat(stat) -> None:
 def test_build_rhis_compliant_df_rejects_invalid_stat() -> None:
     rhis = Rhis(_make_df(n_rows=60, n_cols=1))
     with pytest.raises(ValueError, match=r"Invalid stat 'min2'"):
-        rhis.build_rhis_compliant_df(stat='min2')
+        rhis.build_rhis_compliant_df(stat='min2')  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -306,7 +306,7 @@ def test_is_all_rhis_compliant_false_and_logs_rejection() -> None:
     repr_df = rhis.build_rhis_compliant_df()
     repr_df['series_0'] = list(range(60))
 
-    records: list = []
+    records: list[object] = []
     sink_id = logger.add(records.append, level='DEBUG')
     try:
         result = rhis.is_all_rhis_compliant(repr_df)

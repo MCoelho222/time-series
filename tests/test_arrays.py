@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,12 +14,13 @@ from rhis.utils import clean_numeric_array, nans_nums_from_array
 
 
 def test_clean_numeric_array_keeps_finite_numerics_in_order() -> None:
-    values = [1.0, '2', None, np.nan, 'N/A', 3.5]
+    values: list[Any] = [1.0, '2', None, np.nan, 'N/A', 3.5]
     assert clean_numeric_array(values).tolist() == [1.0, 2.0, 3.5]
 
 
 def test_clean_numeric_array_converts_numeric_strings() -> None:
-    assert clean_numeric_array(['4', '-2.5', 1]).tolist() == [4.0, -2.5, 1.0]
+    numeric_strings: list[Any] = ['4', '-2.5', 1]
+    assert clean_numeric_array(numeric_strings).tolist() == [4.0, -2.5, 1.0]
 
 
 def test_clean_numeric_array_drops_infinite_values() -> None:
@@ -29,7 +32,7 @@ def test_clean_numeric_array_accepts_tuple_input() -> None:
 
 
 def test_clean_numeric_array_accepts_pandas_series() -> None:
-    assert clean_numeric_array(pd.Series([1.0, 9.0])).tolist() == [1.0, 9.0]
+    assert clean_numeric_array(pd.Series([1.0, 9.0])).tolist() == [1.0, 9.0]  # type: ignore[arg-type]
 
 
 def test_clean_numeric_array_returns_float_ndarray() -> None:
@@ -63,8 +66,7 @@ ALL_NAN_ARRAY = np.array([np.nan, np.nan])
 
 
 def test_nans_nums_from_array_returns_only_numeric_by_default() -> None:
-    result = nans_nums_from_array(MIXED_ARRAY)
-    assert result.tolist() == [0.1, 0.3, 0.5]
+    assert np.asarray(nans_nums_from_array(MIXED_ARRAY)).tolist() == [0.1, 0.3, 0.5]
 
 
 def test_nans_nums_from_array_splits_numeric_and_nan() -> None:
@@ -94,4 +96,4 @@ def test_nans_nums_from_array_empty() -> None:
 
 
 def test_nans_nums_from_array_accepts_integer_array() -> None:
-    assert nans_nums_from_array(np.array([1, 2])).tolist() == [1, 2]
+    assert np.asarray(nans_nums_from_array(np.array([1, 2]))).tolist() == [1, 2]
