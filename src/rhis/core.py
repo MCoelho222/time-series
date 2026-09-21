@@ -7,12 +7,12 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Index
 
-from rhis.exceptions import raise_if_no_rhis_df_exists
+from rhis.exceptions import RhisSummaryNotBuiltError, raise_if_no_rhis_df_exists
 from rhis.hypothesis.homogeneity import mann_whitney
 from rhis.hypothesis.independence import wald_wolfowitz
 from rhis.hypothesis.randomness import wallis_moore
 from rhis.hypothesis.stationarity import mann_kendall
-from rhis.plotting import plot_rhis_evolution
+from rhis.plotting import _period_label, plot_rhis_evolution
 from rhis.utils import clean_numeric_array, slice_init, slices_to_evol
 
 if TYPE_CHECKING:
@@ -27,6 +27,19 @@ MIN_NUMERIC_VALUES = 10
 DEFAULT_ALPHA = 0.05
 
 RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
+
+SUMMARY_DF_COLUMNS: tuple[str, ...] = (
+    'original_length',
+    'representative_length',
+    'stat',
+    'discarded_percentage',
+    'remaining_percentage',
+    'non_numeric_excluded',
+    'most_rejected_hypothesis',
+    'alpha',
+    'original_period',
+    'representative_period',
+)
 
 
 class Rhis:
@@ -48,6 +61,8 @@ class Rhis:
         self.rhis_df: DataFrame | None = None
         self.is_rhis_complete = False
         self.alpha = DEFAULT_ALPHA
+
+        self._summary_df: DataFrame | None = None
 
         self.length_init_ts = slice_init(len(self.orig_df))
 
@@ -254,6 +269,9 @@ class Rhis:
         recovered via _find_rhis_compliant_idxs. Each column of the returned
         dataframe holds that slice, NaN-padded to the original index.
 
+        As a side effect, this also builds self.summary_df, a per-series
+        summary of the process (see the 'summary_df' property).
+
         Parameters
         ----------
             stat
@@ -280,6 +298,7 @@ class Rhis:
             raise ValueError(msg)
 
         repr_df = DataFrame(index=self.orig_df.index)
+        summary_rows: dict[str, dict[str, object]] = {}
         for col in self.orig_df.columns:
             ts = self.orig_df[col]
             evol = self.build_rhis_dict_from_timeseries(ts, self.alpha, self.length_init_ts)
@@ -291,9 +310,94 @@ class Rhis:
             numeric_ts = pd.to_numeric(self.orig_df[col], errors='coerce').to_numpy(dtype=float)
             repr_df[col] = self._slice_and_pad(numeric_ts, cut_idxs)
 
+            original_length = len(numeric_ts)
+            representative_length = cut_idxs[1] - cut_idxs[0]
+            original_period = _period_label(self.orig_df.index[0], self.orig_df.index[-1])
+            representative_start = (
+                self.orig_df.index[cut_idxs[0]] if cut_idxs[0] < original_length else self.orig_df.index[-1]
+            )
+            representative_period = _period_label(representative_start, self.orig_df.index[-1])
+
+            summary_rows[col] = {
+                'original_length': original_length,
+                'representative_length': representative_length,
+                'stat': stat,
+                'discarded_percentage': round((original_length - representative_length) / original_length * 100, 2),
+                'remaining_percentage': round(representative_length / original_length * 100, 2),
+                'non_numeric_excluded': int(np.count_nonzero(np.isnan(numeric_ts))),
+                'most_rejected_hypothesis': self._most_rejected_hypothesis(evol, self.alpha),
+                'alpha': self.alpha,
+                'original_period': original_period,
+                'representative_period': representative_period,
+            }
+
+        self._summary_df = DataFrame.from_dict(summary_rows, orient='index').reindex(columns=list(SUMMARY_DF_COLUMNS))
+
         logger.info("RHIS-compliant dataframe built successfully.")
 
         return repr_df
+
+
+    @staticmethod
+    def _most_rejected_hypothesis(evol: dict[str, list[float]], alpha: float) -> str:
+        """The R, H, I or S hypothesis rejected most often along its evolution."""
+        best_hypothesis = 'none'
+        best_count = 0
+        for hypothesis in RHIS_HYPOTHESES:
+            pvalues = np.asarray(evol[hypothesis], dtype=float)
+            count = int(np.count_nonzero((~np.isnan(pvalues)) & (pvalues < alpha)))
+            if count > best_count:
+                best_count = count
+                best_hypothesis = hypothesis
+
+        return best_hypothesis
+
+
+    @property
+    def summary_df(self) -> DataFrame:
+        """
+        A per-series summary of the representative (RHIS-compliant)
+        selection, built by Rhis.build_rhis_compliant_df().
+
+        One row per original time series (indexed by the column name) with:
+
+        original_length
+            Number of observations in the original series.
+        representative_length
+            Number of observations kept in the representative series.
+        stat
+            The p-value series used to derive the representative indexes
+            ('min', or one of 'R', 'H', 'I' or 'S').
+        discarded_percentage
+            Relative amount of observations discarded, as a percentage of
+            the original length.
+        remaining_percentage
+            Relative amount of observations kept, as a percentage of the
+            original length.
+        non_numeric_excluded
+            Number of non-numeric or missing values excluded from the
+            statistical analyses.
+        most_rejected_hypothesis
+            The hypothesis among R, H, I and S rejected most often along
+            its p-value evolution, or 'none' if nothing was rejected.
+        alpha
+            The significance level used for the decisions.
+        original_period
+            Label of the complete period covered by the original series.
+        representative_period
+            Label of the period covered by the representative series.
+
+        Raises
+        ------
+            RhisSummaryNotBuiltError
+                If `build_rhis_compliant_df()` has not been run yet.
+        """
+        if self._summary_df is None:
+            msg = "Rhis.build_rhis_compliant_df() should be run before accessing Rhis.summary_df."
+            logger.debug(msg)
+            raise RhisSummaryNotBuiltError(msg)
+
+        return self._summary_df
 
 
     def calculate_rhis_once_with_full_ts(self, repr_df: DataFrame) -> dict[str, dict[str, float]]:

@@ -179,7 +179,7 @@ def plot_rhis_evolution(  # noqa: PLR0913
             facecolors='0.5',
             edgecolors='none',
             alpha=0.5,
-            s=60,
+            s=70,
             label=f'{series_name} ({series_period})',
         )
 
@@ -191,7 +191,7 @@ def plot_rhis_evolution(  # noqa: PLR0913
                     marker='o',
                     color='black',
                     edgecolors='none',
-                    s=30,
+                    s=50,
                     label=f'{series_name}_repr ({repr_period})',
                 )
 
@@ -223,7 +223,7 @@ def plot_rhis_evolution(  # noqa: PLR0913
             ncols=3,
             fontsize=9,
             frameon=True,
-            edgecolor='none',
+            edgecolor='0.5',
         )
 
         if figtitle is not None:
