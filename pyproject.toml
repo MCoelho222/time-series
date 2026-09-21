@@ -139,7 +139,8 @@ rhis = "rhis:__main__.main"
   plugins = ["covdefaults"]
 
 [tool.mypy]
-  files = ["src/"]
+  files = ["src/", "tests/"]
+  mypy_path = "src"
   check_untyped_defs = true
   disallow_any_generics = true
   disallow_incomplete_defs = true
@@ -148,3 +149,9 @@ rhis = "rhis:__main__.main"
   no_implicit_optional = true
   warn_unused_ignores = true
   warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+  module = "tests.*"
+  check_untyped_defs = false
+  disallow_incomplete_defs = false
+  disallow_untyped_defs = false

@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import pandas as pd
+from loguru import logger
 
 from rhis.utils import to_ranks
 
@@ -16,6 +18,18 @@ if TYPE_CHECKING:
 PLOTS_DIR = 'hypothesis_testing_plots'
 RHIS_PLOTS_DIR = 'rhis_plots'
 DEFAULT_ALPHA = 0.05
+
+
+def _year_label(value: object) -> str:
+    if isinstance(value, pd.Timestamp):
+        return str(value.year)
+    if isinstance(value, (int, float)):
+        return str(int(value))
+    return str(value)
+
+
+def _period_label(first: object, last: object) -> str:
+    return f'{_year_label(first)}-{_year_label(last)}'
 
 
 def plot_test(  # noqa: PLR0913
@@ -102,12 +116,13 @@ def plot_test(  # noqa: PLR0913
     plt.savefig(plots_dir / f'{filename}.PNG', bbox_inches='tight')
 
 
-def plot_rhis_evolution(
+def plot_rhis_evolution(  # noqa: PLR0913
     orig_df: DataFrame,
     rhis_df: DataFrame,
     alpha: float,
     *,
     show_repr: bool = True,
+    repr_df: DataFrame | None = None,
     figtitle: str | None = None,
 ) -> None:
     """
@@ -119,16 +134,19 @@ def plot_rhis_evolution(
     Parameters
     ----------
         orig_df
-            The original dataframe. Optional `*_repr` columns are plotted when
-            `show_repr` is True.
+            The original dataframe.
         rhis_df
             The dataframe with the R, H, I and S p-value evolutions produced by
-            `Rhis.evol()`.
+            `Rhis.build_rhis_evol_df()`.
         alpha
             The significance level used by the tests.
         show_repr
-            Whether to plot the RHIS-compliant representative series, added by
-            `Rhis.add_rhis_compliant_to_df()`, when present.
+            Whether to plot the RHIS-compliant representative series taken
+            from `repr_df`, when one is provided.
+        repr_df
+            The dataframe returned by `Rhis.build_rhis_compliant_df()`,
+            holding the representative series, NaN-padded to the original
+            index. Only used when `show_repr` is True.
         figtitle
             An optional figure title. When given, it is used as the title of
             every saved figure; otherwise the title defaults to
@@ -144,29 +162,42 @@ def plot_rhis_evolution(
 
         series_ax = pvalue_ax.twinx()
 
+        series_period = _period_label(orig_df.index[0], orig_df.index[-1])
+        repr_period = series_period
+
+        if show_repr and repr_df is not None and series_name in repr_df.columns:
+            repr_values = repr_df[series_name]
+            valid = repr_values.notna()
+            if valid.any():
+                start = valid.idxmax()
+                repr_period = _period_label(start, orig_df.index[-1])
+
         series_ax.scatter(
             orig_df.index,
             orig_df[series_name],
-            color='black',
+            marker='o',
+            facecolors='0.5',
             edgecolors='none',
-            alpha=0.2,
-            label=series_name,
+            alpha=0.5,
+            s=60,
+            label=f'{series_name} ({series_period})',
         )
 
-        if show_repr:
-            repr_name = series_name + '_repr'
-            if repr_name in orig_df.columns:
+        if show_repr and repr_df is not None:
+            if series_name in repr_df.columns:
                 series_ax.scatter(
-                    orig_df.index,
-                    orig_df[repr_name],
+                    repr_df.index,
+                    repr_df[series_name],
+                    marker='o',
                     color='black',
                     edgecolors='none',
-                    label=repr_name,
+                    s=30,
+                    label=f'{series_name}_repr ({repr_period})',
                 )
 
-        if (series_name, 'min') in rhis_df.columns:
+        if (series_name, 'RHIS-min') in rhis_df.columns:
             pvalue_ax.plot(
-                rhis_df[(series_name, 'min')],
+                rhis_df[(series_name, 'RHIS-min')],
                 color='black',
                 linewidth=6,
                 alpha=0.2,
@@ -189,6 +220,10 @@ def plot_rhis_evolution(
             pvalue_handles + series_handles,
             pvalue_labels + series_labels,
             loc='upper left',
+            ncols=3,
+            fontsize=9,
+            frameon=True,
+            edgecolor='none',
         )
 
         if figtitle is not None:
@@ -199,5 +234,7 @@ def plot_rhis_evolution(
 
         plots_dir = Path(RHIS_PLOTS_DIR)
         plots_dir.mkdir(exist_ok=True)
-        plt.savefig(plots_dir / f"RHIS {series_name}.PNG", bbox_inches='tight')
+        save_path = plots_dir / f"RHIS {series_name}.PNG"
+        plt.savefig(save_path, bbox_inches='tight')
+        logger.info(f"A plot was saved to {save_path}")
         plt.close(fig)

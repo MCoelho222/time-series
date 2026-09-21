@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -101,7 +103,8 @@ def test_slices_to_evol_start_greater_than_length() -> None:
 
 
 def test_slices_to_evol_works_with_non_numeric_items() -> None:
-    assert slices_to_evol(['a', 'b', 'c'], 2) == [['a', 'b'], ['a', 'b', 'c']]
+    non_numeric: list[Any] = ['a', 'b', 'c']
+    assert slices_to_evol(non_numeric, 2) == [['a', 'b'], ['a', 'b', 'c']]
 
 
 def test_slices_to_evol_accepts_numpy_array() -> None:

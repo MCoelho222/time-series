@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 import scipy.stats as sts
 
 from rhis.hypothesis import mann_kendall
 from rhis.utils import ranks_with_ties_corrected
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 P_HALF = 0.5
 P_VALUE_TOL = 1e-6
@@ -18,13 +23,13 @@ MONOTONE_DOWN = list(range(20, 0, -1))
 BALANCED = [3, 6, 9, 6, 8, 6, 7, 3]
 
 
-def _independent_statistic(ts: list[float]) -> float:
+def _independent_statistic(ts: Sequence[float]) -> float:
     """S = number of increasing pairs minus number of decreasing pairs."""
     signs = np.sign(np.triu(np.array(ts)[None, :] - np.array(ts)[:, None], 1))
     return float(np.sum(signs == 1) - np.sum(signs == -1))
 
 
-def _independent_sigma(ts: list[float]) -> float:
+def _independent_sigma(ts: Sequence[float]) -> float:
     """Standard deviation of S under the null, with the ties correction."""
     n = len(ts)
     _, counts = np.unique(ts, return_counts=True)

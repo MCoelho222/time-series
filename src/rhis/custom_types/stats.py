@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Literal, NamedTuple, TypeAlias
 
 RhisCode: TypeAlias = Literal["r", "h", "i", "s"]
-RhisStat: TypeAlias = Literal["min", "median", "mean", "max"]
+RhisStat: TypeAlias = Literal["R", "H", "I", "S", "min"]
 
 
 class MannWhitneyResults(NamedTuple):
