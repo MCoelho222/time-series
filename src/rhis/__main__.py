@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import pandas as pd
 from loguru import logger
@@ -159,14 +160,13 @@ def main() -> None:  # noqa: PLR0915
     print()
 
     col = 'flow'
-    s = summary.loc[col]
-    orig_len = int(s['original_length'])
-    repr_len = int(s['representative_length'])
-    discarded_pct = float(s['discarded_percentage'])
-    non_numeric = int(s['non_numeric_excluded'])
-    most_rejected = str(s['most_rejected_hypothesis'])
-    original_period = str(s['original_period'])
-    representative_period = str(s['representative_period'])
+    orig_len = int(cast('Any', summary.loc[col, 'original_length']))
+    repr_len = int(cast('Any', summary.loc[col, 'representative_length']))
+    discarded_pct = float(cast('Any', summary.loc[col, 'discarded_percentage']))
+    non_numeric = int(cast('Any', summary.loc[col, 'non_numeric_excluded']))
+    most_rejected = str(cast('Any', summary.loc[col, 'most_rejected_hypothesis']))
+    original_period = str(cast('Any', summary.loc[col, 'original_period']))
+    representative_period = str(cast('Any', summary.loc[col, 'representative_period']))
 
     print('  The whole story in one table:')
     print()
