@@ -47,22 +47,28 @@ def load_example_data() -> DataFrame:
 def main() -> None:
     df = load_example_data()
     rhis = Rhis(df)
-    rhis.build_rhis_evol_df()
-    repr_df = rhis.build_rhis_compliant_df()
-    rhis.plot_evolution(figtitle='Representative Series From Nile River Annual Flow (1871-1970)', repr_df=repr_df)
 
-    repr_rhis = rhis.calculate_repr_rhis_pvalues(repr_df)
-    logger.info("RHIS p-values for each representative series:")
-    for repr_name, pvalues in repr_rhis.items():
-        logger.info(
-            f"{repr_name}: R={pvalues['R']:.4f} | "
-            f"H={pvalues['H']:.4f} | I={pvalues['I']:.4f} | S={pvalues['S']:.4f}"
-        )
+    # Check if the series is rhis complaint as is
+    if not rhis.is_all_rhis_compliant(rhis.orig_df):
+        rhis_evol_df = rhis.build_rhis_evol_df()
+        print(rhis_evol_df.head())
 
-    if rhis.is_all_rhis_compliant(repr_df):
-        logger.info("The representative series from Nile River annual flows is RHIS-compliant at alpha = {}.", rhis.alpha)
-    else:
-        logger.warning("At least one representative series is not fully RHIS-compliant.")
+        repr_df = rhis.build_rhis_compliant_df()
+        rhis.plot_evolution(figtitle='RHIS-compliant Series From Nile River Annual Flow (1871-1970)', repr_df=repr_df)
+        print(repr_df)
+
+        repr_rhis = rhis.calculate_rhis_once_with_full_ts(repr_df)
+        logger.info("RHIS p-values for the representative series:")
+        for repr_name, pvalues in repr_rhis.items():
+            logger.info(
+                f"{repr_name}: R={pvalues['R']:.4f} | "
+                f"H={pvalues['H']:.4f} | I={pvalues['I']:.4f} | S={pvalues['S']:.4f}"
+            )
+
+        if rhis.is_all_rhis_compliant(repr_df):
+            logger.info("The representative series from Nile River annual flows is RHIS-compliant at alpha = {}.", rhis.alpha)
+        else:
+            logger.warning("At least one representative series is not fully RHIS-compliant.")
 
 
 if __name__ == "__main__":

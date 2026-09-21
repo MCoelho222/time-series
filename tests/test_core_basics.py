@@ -241,7 +241,7 @@ def test_build_rhis_compliant_df_defaults_to_min_and_keeps_compliant_series() ->
 
 @pytest.mark.parametrize(
     'stat',
-    ['min', 'mean', 'median', 'max'],
+    ['min', 'R', 'H', 'I', 'S'],
 )
 def test_build_rhis_compliant_df_respects_stat(stat) -> None:
     rng = np.random.default_rng(3)
@@ -253,7 +253,11 @@ def test_build_rhis_compliant_df_respects_stat(stat) -> None:
     expected_evol = rhis.build_rhis_dict_from_timeseries(
         rhis.orig_df['flow'], rhis.alpha, rhis.length_init_ts
     )
-    stat_pvalues = np.asarray(rhis._add_stat_to_evol(expected_evol, stat)[stat], dtype=float)
+    if stat == 'min':
+        stat_pvalues = list(np.min(list(expected_evol.values()), axis=0))
+    else:
+        stat_pvalues = expected_evol[stat]
+    stat_pvalues = np.asarray(stat_pvalues, dtype=float)
     expected_idxs = rhis._find_rhis_compliant_idxs(stat_pvalues, rhis.alpha)
     expected = Rhis._slice_and_pad(rhis.orig_df['flow'].to_numpy(dtype=float), expected_idxs)
 
@@ -271,12 +275,12 @@ def test_build_rhis_compliant_df_rejects_invalid_stat() -> None:
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_calculate_repr_rhis_pvalues_returns_calculate_rhis_p_values(make_df) -> None:
+def test_calculate_rhis_once_with_full_ts_returns_calculate_rhis_p_values(make_df) -> None:
     df = make_df()
     rhis = Rhis(df)
     repr_df = rhis.build_rhis_compliant_df()
 
-    result = rhis.calculate_repr_rhis_pvalues(repr_df)
+    result = rhis.calculate_rhis_once_with_full_ts(repr_df)
 
     assert set(result) == set(df.columns)
     for column in df.columns:
@@ -284,10 +288,10 @@ def test_calculate_repr_rhis_pvalues_returns_calculate_rhis_p_values(make_df) ->
         assert result[column] == pytest.approx(expected)
 
 
-def test_calculate_repr_rhis_pvalues_on_empty_repr_df() -> None:
+def test_calculate_rhis_once_with_full_ts_on_empty_repr_df() -> None:
     rhis = Rhis(_make_df(n_rows=60, n_cols=1))
     empty = pd.DataFrame(index=rhis.orig_df.index)
-    assert rhis.calculate_repr_rhis_pvalues(empty) == {}
+    assert rhis.calculate_rhis_once_with_full_ts(empty) == {}
 
 
 def test_is_all_rhis_compliant_true_for_compliant_repr() -> None:

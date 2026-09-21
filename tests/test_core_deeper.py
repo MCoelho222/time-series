@@ -7,7 +7,6 @@ import pytest
 from rhis.core import Rhis
 from tests.test_core_basics import _make_df, _make_messy_monthly_df
 
-STATS_METHODS = [('min', np.min), ('mean', np.mean), ('median', np.median), ('max', np.max)]
 CUSTOM_LENGTH_INIT_TS = 15
 
 
@@ -16,7 +15,7 @@ CUSTOM_LENGTH_INIT_TS = 15
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_build_rhis_evol_df_stats_columns_are_aggregates_over_rhis(make_df) -> None:
+def test_build_rhis_evol_df_rhis_min_column_is_min_over_rhis(make_df) -> None:
     df = make_df()
     rhis = Rhis(df)
     rhis.build_rhis_evol_df()
@@ -28,20 +27,19 @@ def test_build_rhis_evol_df_stats_columns_are_aggregates_over_rhis(make_df) -> N
         )
         all_present = ~np.isnan(hyps).any(axis=1)
 
-        for name, method in STATS_METHODS:
-            actual = rhis.rhis_df[(column, name)].to_numpy(dtype=float)
-            expected = np.full(len(actual), np.nan)
-            expected[all_present] = method(hyps[all_present], axis=1)
+        actual = rhis.rhis_df[(column, 'RHIS-min')].to_numpy(dtype=float)
+        expected = np.full(len(actual), np.nan)
+        expected[all_present] = hyps[all_present].min(axis=1)
 
-            np.testing.assert_allclose(actual, expected, equal_nan=True)
+        np.testing.assert_allclose(actual, expected, equal_nan=True)
 
 
-def test_build_rhis_evol_df_without_rhis_stats() -> None:
+def test_build_rhis_evol_df_without_rhis_min() -> None:
     rhis = Rhis(_make_df())
-    rhis.build_rhis_evol_df(include_rhis_stats=False)
+    rhis.build_rhis_evol_df(rhis_min=False)
 
     assert rhis.rhis_df is not None
-    assert ('series_0', 'min') not in rhis.rhis_df.columns
+    assert ('series_0', 'RHIS-min') not in rhis.rhis_df.columns
 
 
 def test_build_rhis_evol_df_with_custom_length_init_ts() -> None:

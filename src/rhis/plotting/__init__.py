@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from loguru import logger
 
 from rhis.utils import to_ranks
 
@@ -194,9 +195,9 @@ def plot_rhis_evolution(  # noqa: PLR0913
                     label=f'{series_name}_repr ({repr_period})',
                 )
 
-        if (series_name, 'min') in rhis_df.columns:
+        if (series_name, 'RHIS-min') in rhis_df.columns:
             pvalue_ax.plot(
-                rhis_df[(series_name, 'min')],
+                rhis_df[(series_name, 'RHIS-min')],
                 color='black',
                 linewidth=6,
                 alpha=0.2,
@@ -233,5 +234,7 @@ def plot_rhis_evolution(  # noqa: PLR0913
 
         plots_dir = Path(RHIS_PLOTS_DIR)
         plots_dir.mkdir(exist_ok=True)
-        plt.savefig(plots_dir / f"RHIS {series_name}.PNG", bbox_inches='tight')
+        save_path = plots_dir / f"RHIS {series_name}.PNG"
+        plt.savefig(save_path, bbox_inches='tight')
+        logger.info(f"A plot was saved to {save_path}")
         plt.close(fig)

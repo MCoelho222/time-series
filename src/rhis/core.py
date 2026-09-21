@@ -7,7 +7,7 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Index
 
-from rhis.exceptions import raise_if_no_rhis_run
+from rhis.exceptions import raise_if_no_rhis_df_exists
 from rhis.hypothesis.homogeneity import mann_whitney
 from rhis.hypothesis.independence import wald_wolfowitz
 from rhis.hypothesis.randomness import wallis_moore
@@ -16,8 +16,6 @@ from rhis.plotting import plot_rhis_evolution
 from rhis.utils import clean_numeric_array, slice_init, slices_to_evol
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from numpy.typing import NDArray
     from pandas import Series
 
@@ -28,12 +26,7 @@ if TYPE_CHECKING:
 MIN_NUMERIC_VALUES = 10
 DEFAULT_ALPHA = 0.05
 
-STAT_METHODS: dict[str, Callable[..., NDArray[np.float64]]] = {
-    'min': np.min,
-    'median': np.median,
-    'mean': np.mean,
-    'max': np.max,
-}
+RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
 
 
 class Rhis:
@@ -59,10 +52,10 @@ class Rhis:
         self.length_init_ts = slice_init(len(self.orig_df))
 
 
-    def _build_rhis_initial_df(self, df_cols: list[str], df_index: Index | None, *, include_rhis_stats: bool) -> DataFrame:
+    def _build_rhis_initial_df(self, df_cols: list[str], df_index: Index | None, *, rhis_min: bool) -> DataFrame:
         rhis = ['R', 'H', 'I', 'S']
-        if include_rhis_stats:
-            rhis.extend(['min', 'avg', 'med', 'max'])
+        if rhis_min:
+            rhis.extend(['RHIS-min'])
         cols = [(col, hyp) for col in df_cols for hyp in rhis]
         multi_index_cols = pd.MultiIndex.from_tuples(cols)
         result_df = pd.DataFrame(columns=multi_index_cols, index=df_index)
@@ -179,30 +172,18 @@ class Rhis:
         return evol
 
 
-    def _add_rhis_stats_to_evol(self, evol_dict: dict[str, list[float]]) -> dict[str, list[float]]:
+    def _add_rhis_min_to_evol(self, evol_dict: dict[str, list[float]]) -> dict[str, list[float]]:
         rhis_values = list(evol_dict.values())
-        for name, method in STAT_METHODS.items():
-            evol_dict[name] = list(self._agg_stat(method, rhis_values))
+        evol_dict['RHIS-min'] = list(np.min(rhis_values, axis=0))
 
         return evol_dict
 
 
-    @staticmethod
-    def _agg_stat(method: Callable[..., NDArray[np.float64]], rhis_values: list[list[float]]) -> NDArray[np.float64]:
-        return method(rhis_values, axis=0, keepdims=True).ravel()
-
-
-    def _add_stat_to_evol(self, evol_dict: dict[str, list[float]], stat: RhisStat) -> dict[str, list[float]]:
-        evol_dict[stat] = list(self._agg_stat(STAT_METHODS[stat], list(evol_dict.values())))
-
-        return evol_dict
-
-
-    def _ts_evol(self, ts: Series,*, include_rhis_stats: bool) -> None:
+    def _ts_evol(self, ts: Series, *, rhis_min: bool) -> None:
         evol = self.build_rhis_dict_from_timeseries(ts, self.alpha, self.length_init_ts)
 
-        if include_rhis_stats:
-            evol = self._add_rhis_stats_to_evol(evol)
+        if rhis_min:
+            evol = self._add_rhis_min_to_evol(evol)
 
         if self.rhis_df is None:  # pragma: no cover - _build_rhis_evol_df() always sets it before this loop
             msg = "RHIS dataframe has not been initialized."
@@ -217,7 +198,7 @@ class Rhis:
         cols: list[str] | None = None,
         length_init_ts: int | None = None,
         *,
-        include_rhis_stats: bool = True,
+        rhis_min: bool = True,
     ) -> DataFrame:
         """
         Build a dataframe (self.rhis_df) with the evolution of the p-values
@@ -233,9 +214,9 @@ class Rhis:
             length_init_ts
                 The minimum slice length for which the tests are defined. If
                 not given, the value set at construction time is used.
-            include_rhis_stats
-                When True, also adds the 'min', 'mean', 'median' and 'max'
-                p-value evolutions computed over the R, H, I and S evolutions.
+            rhis_min
+                When True, also adds the 'RHIS-min' p-value evolution, i.e.
+                the pointwise minimum over the R, H, I and S evolutions.
 
         Return
         ------
@@ -248,12 +229,12 @@ class Rhis:
         logger.info(msg)
 
         evol_cols = cols if cols is not None else self.orig_df.columns.tolist()
-        self.rhis_df = self._build_rhis_initial_df(evol_cols, self.orig_df.index, include_rhis_stats=include_rhis_stats)
+        self.rhis_df = self._build_rhis_initial_df(evol_cols, self.orig_df.index, rhis_min=rhis_min)
         for col in evol_cols:
             ts = self.orig_df[col]
-            self._ts_evol(ts, include_rhis_stats=include_rhis_stats)
+            self._ts_evol(ts, rhis_min=rhis_min)
 
-        logger.info("RHIS completed successfully.")
+        logger.info("RHIS evolution dataframe created successfully.")
         self.is_rhis_complete = True
 
         return self.rhis_df
@@ -266,17 +247,20 @@ class Rhis:
         self.rhis_df.
 
         For every column, the R, H, I and S p-value evolutions are computed
-        (see build_rhis_dict_from_timeseries), the choosen aggregate
-        'stat' evolution is derived from them, and the longest trailing
-        slice that passes the tests at self.alpha is recovered via
-        _find_rhis_compliant_idxs. Each column of the returned dataframe
-        holds that slice, NaN-padded to the original index.
+        (see build_rhis_dict_from_timeseries); the compliance decision is
+        then based either on the pointwise minimum of those evolutions
+        ('min') or on the evolution of a single hypothesis. On top of that,
+        the longest trailing slice that passes the tests at self.alpha is
+        recovered via _find_rhis_compliant_idxs. Each column of the returned
+        dataframe holds that slice, NaN-padded to the original index.
 
         Parameters
         ----------
             stat
-                The aggregate used to decide compliance, one of 'min',
-                'mean', 'median' or 'max'. Defaults to 'min'.
+                The basis for the compliance decision, either 'min' (the
+                pointwise minimum over the R, H, I and S evolutions) or a
+                single hypothesis among 'R', 'H', 'I' and 'S'. Defaults to
+                'min'.
 
         Return
         ------
@@ -287,10 +271,11 @@ class Rhis:
         Raises
         ------
             ValueError
-                If 'stat' is not one of 'min', 'mean', 'median' or 'max'.
+                If 'stat' is not one of 'min', 'R', 'H', 'I' or 'S'.
         """
-        if stat not in STAT_METHODS:
-            msg = f"Invalid stat '{stat}'; choose one of {list(STAT_METHODS)}."
+        valid_stats = (*RHIS_HYPOTHESES, 'min')
+        if stat not in valid_stats:
+            msg = f"Invalid stat '{stat}'; choose one of {list(valid_stats)}."
             logger.debug(msg)
             raise ValueError(msg)
 
@@ -298,17 +283,20 @@ class Rhis:
         for col in self.orig_df.columns:
             ts = self.orig_df[col]
             evol = self.build_rhis_dict_from_timeseries(ts, self.alpha, self.length_init_ts)
-            stat_pvalues = self._add_stat_to_evol(evol, stat)[stat]
+            if stat == 'min':
+                stat_pvalues = list(np.min(list(evol.values()), axis=0))
+            else:
+                stat_pvalues = evol[stat]
             cut_idxs = self._find_rhis_compliant_idxs(np.asarray(stat_pvalues, dtype=float), self.alpha)
             numeric_ts = pd.to_numeric(self.orig_df[col], errors='coerce').to_numpy(dtype=float)
             repr_df[col] = self._slice_and_pad(numeric_ts, cut_idxs)
 
-        logger.info("RHIS compliant dataframe built successfully.")
+        logger.info("RHIS-compliant dataframe built successfully.")
 
         return repr_df
 
 
-    def calculate_repr_rhis_pvalues(self, repr_df: DataFrame) -> dict[str, dict[str, float]]:
+    def calculate_rhis_once_with_full_ts(self, repr_df: DataFrame) -> dict[str, dict[str, float]]:
         """
         Apply the RHIS tests to the representative series held in the
         dataframe returned by build_rhis_compliant_df().
@@ -340,7 +328,7 @@ class Rhis:
         at the current significance level.
 
         For each column of 'repr_df' this inspects the p-values returned
-        by calculate_repr_rhis_pvalues. A test is considered to have
+        by calculate_rhis_once_with_full_ts. A test is considered to have
         rejected the null hypothesis when its p-value is less than alpha;
         an undefined p-value (NaN, e.g. for the independence test on a
         constant series) is never a rejection.
@@ -358,7 +346,8 @@ class Rhis:
             debug message is logged naming the column and the
             hypothesis.
         """
-        pvalues = self.calculate_repr_rhis_pvalues(repr_df)
+        logger.info("Checking RHIS compliance...")
+        pvalues = self.calculate_rhis_once_with_full_ts(repr_df)
 
         all_compliant = True
         for repr_name, hyp_pvalues in pvalues.items():
@@ -367,8 +356,10 @@ class Rhis:
                     all_compliant = False
                     msg = (f"Column '{repr_name}' rejected hypothesis '{hyp}' "
                            f"(p = {p_value:.4f} < alpha = {self.alpha}).")
-                    logger.debug(msg)
+                    logger.warning(msg)
 
+        if all_compliant:
+            logger.info("All RHIS compliant!")
         return all_compliant
 
 
@@ -405,7 +396,7 @@ class Rhis:
             RhisEvolNotCalledError
                 If `build_rhis_evol_df()` has not been run yet.
         """
-        raise_if_no_rhis_run(is_rhis_complete=self.is_rhis_complete)
+        raise_if_no_rhis_df_exists(is_rhis_complete=self.is_rhis_complete)
 
         if self.rhis_df is None:
             msg = 'RHIS dataframe has not been initialized.'
