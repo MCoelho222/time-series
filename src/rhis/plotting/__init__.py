@@ -223,7 +223,7 @@ def plot_rhis_evolution(  # noqa: PLR0913
             ncols=3,
             fontsize=9,
             frameon=True,
-            edgecolor='none',
+            edgecolor='0.5',
         )
 
         if figtitle is not None:

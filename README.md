@@ -85,4 +85,7 @@ rhis = Rhis(df)
 rhis.build_rhis_evol_df()
 repr_df = rhis.build_rhis_compliant_df()
 rhis.plot_evolution(repr_df=repr_df)
+
+# Per-series summary of the representative selection
+summary_df = rhis.summary_df
 ```
