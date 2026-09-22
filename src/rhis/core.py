@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 
 MIN_NUMERIC_VALUES = 10
+MIN_TS_LENGTH_FOR_RHIS = 5
 DEFAULT_ALPHA = 0.05
 
 RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
@@ -60,11 +61,9 @@ class Rhis:
                 cols_to_drop.append(col)
 
         if len(cols_to_drop) > 0:
-            msg = f"Dropping columns with all NaN or fewer than 10 numeric values: {cols_to_drop}" 
+            msg = f"Dropping columns with all NaN or fewer than {MIN_NUMERIC_VALUES} numeric values: {cols_to_drop}"
             logger.debug(msg)
             self.numeric_orig_df = self.numeric_orig_df.drop(columns=cols_to_drop)
-            logger.debug("The clean dataframe is presented below:")
-            print(self.numeric_orig_df.info())
 
         self.rhis_df: DataFrame | None = None
         self.is_rhis_complete = False
@@ -170,7 +169,7 @@ class Rhis:
 
     @staticmethod
     def build_rhis_evol_dict_from_ts(ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
-        ts_np = ts[::-1]
+        ts_np = ts.to_numpy()[::-1]
         slices = slices_to_evol(ts_np, length_init_ts)
         evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
 
@@ -311,7 +310,7 @@ class Rhis:
                 stat_pvalues = evol_dict[stat]
 
             cut_idxs = self._find_rhis_compliant_idxs(np.asarray(stat_pvalues, dtype=float), self.alpha)
-            repr_df[col] = self._slice_and_pad(numeric_df[col], cut_idxs)
+            repr_df[col] = self._slice_and_pad(numeric_df[col].to_numpy(dtype=float), cut_idxs)
             original_length = len(numeric_df[col])
             representative_length = cut_idxs[1] - cut_idxs[0]
             original_period = _period_label(numeric_df.index[0], numeric_df.index[-1])
@@ -525,8 +524,8 @@ class Rhis:
     ) -> dict[str, float]:
         ts = clean_numeric_array(ts)
 
-        # The series must have at least 5 numeric values to be tested
-        if len(ts) < 5:
+        # The series must have at least MIN_TS_LENGTH_FOR_RHIS numeric values to be tested
+        if len(ts) < MIN_TS_LENGTH_FOR_RHIS:
             return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
 
         if np.all(ts == ts[0]):

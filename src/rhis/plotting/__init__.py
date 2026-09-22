@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
 
 PLOTS_DIR = 'hypothesis_testing_plots'
-RHIS_PLOTS_DIR = Path.cwd() / "rhis_plots"
+RHIS_PLOTS_DIR = 'rhis_plots'
 DEFAULT_ALPHA = 0.05
 
 
@@ -234,8 +234,8 @@ def plot_rhis_evolution(  # noqa: PLR0913
 
         plots_dir = Path(RHIS_PLOTS_DIR)
         plots_dir.mkdir(exist_ok=True)
-        series_name = series_name.replace("/", "_")
-        save_path = plots_dir / f"RHIS {series_name}.PNG"
+        safe_series_name = series_name.replace("/", "_")
+        save_path = plots_dir / f"RHIS {safe_series_name}.PNG"
         plt.savefig(save_path, bbox_inches='tight')
         logger.info(f"A plot was saved to {save_path}")
         plt.close(fig)

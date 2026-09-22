@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
 
 
-def clean_numeric_array(values: TimeSeriesFlex) -> NDArray[np.float64] | list:
+def clean_numeric_array(values: TimeSeriesFlex) -> NDArray[np.float64]:
     """Return finite numeric values from an arbitrary iterable."""
     numeric_values = []
     for value in values:
@@ -22,11 +22,6 @@ def clean_numeric_array(values: TimeSeriesFlex) -> NDArray[np.float64] | list:
             continue
         if isfinite(numeric_value):
             numeric_values.append(numeric_value)
-
-    if not numeric_values:
-        return []
-        # msg = 'The time series contains no finite numeric values.'
-        # raise ValueError(msg)
 
     return np.asarray(numeric_values, dtype=np.float64)
 

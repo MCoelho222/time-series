@@ -50,9 +50,10 @@ def test_clean_numeric_array_returns_float_ndarray() -> None:
         [None],
     ],
 )
-def test_clean_numeric_array_raises_when_no_finite_values(values) -> None:
-    with pytest.raises(ValueError, match='contains no finite numeric values'):
-        clean_numeric_array(values)
+def test_clean_numeric_array_returns_empty_array_when_no_finite_values(values) -> None:
+    result = clean_numeric_array(values)
+    assert isinstance(result, np.ndarray)
+    assert result.tolist() == []
 
 
 # =====================================================================
