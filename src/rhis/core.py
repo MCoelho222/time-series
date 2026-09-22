@@ -49,15 +49,23 @@ class Rhis:
             logger.debug(msg)
             raise ValueError(msg)
 
-        for column in df.columns:
-            numeric_values = pd.to_numeric(df[column], errors='coerce').to_numpy(dtype=float)
-            numeric_count = np.count_nonzero(np.isfinite(numeric_values))
-            if numeric_count < MIN_NUMERIC_VALUES:
-                msg = (f"Series {column} has fewer than 10 numeric values ({numeric_count}). "
-                       "Statistical results will have no useful meaning.")
-                logger.debug(msg)
-
         self.orig_df: DataFrame = df.copy()
+        self.numeric_orig_df: DataFrame = self.orig_df.copy().apply(pd.to_numeric, errors='coerce')
+
+        cols_to_drop = self.numeric_orig_df.columns[self.numeric_orig_df.isna().all()].to_list()
+
+        for col in self.numeric_orig_df.columns:
+            numeric_count = np.count_nonzero(np.isfinite(self.numeric_orig_df[col]))
+            if numeric_count < MIN_NUMERIC_VALUES and col not in cols_to_drop:
+                cols_to_drop.append(col)
+
+        if len(cols_to_drop) > 0:
+            msg = f"Dropping columns with all NaN or fewer than 10 numeric values: {cols_to_drop}" 
+            logger.debug(msg)
+            self.numeric_orig_df = self.numeric_orig_df.drop(columns=cols_to_drop)
+            logger.debug("The clean dataframe is presented below:")
+            print(self.numeric_orig_df.info())
+
         self.rhis_df: DataFrame | None = None
         self.is_rhis_complete = False
         self.alpha = DEFAULT_ALPHA
@@ -161,19 +169,13 @@ class Rhis:
 
 
     @staticmethod
-    def build_rhis_dict_from_timeseries(ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
-        ts_np = ts.to_numpy()[::-1]
+    def build_rhis_evol_dict_from_ts(ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
+        ts_np = ts[::-1]
         slices = slices_to_evol(ts_np, length_init_ts)
         evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
 
-        ts_clean = clean_numeric_array(ts_np)
-        constant_series = bool(np.all(ts_clean == ts_clean[0]))
-        if constant_series:
-            msg = "Constant series detected; recording NaN independence p-values."
-            logger.debug(msg)
-
         for sli in slices:
-            rhis_dict = Rhis.calculate_rhis(sli, alpha, constant_series=constant_series)
+            rhis_dict = Rhis.calculate_rhis(sli, alpha)
             evol['R'].append(rhis_dict['R'])
             evol['H'].append(rhis_dict['H'])
             evol['I'].append(rhis_dict['I'])
@@ -195,7 +197,7 @@ class Rhis:
 
 
     def _ts_evol(self, ts: Series, *, rhis_min: bool) -> None:
-        evol = self.build_rhis_dict_from_timeseries(ts, self.alpha, self.length_init_ts)
+        evol = self.build_rhis_evol_dict_from_ts(ts, self.alpha, self.length_init_ts)
 
         if rhis_min:
             evol = self._add_rhis_min_to_evol(evol)
@@ -243,10 +245,10 @@ class Rhis:
         msg = "Generating RHIS series..."
         logger.info(msg)
 
-        evol_cols = cols if cols is not None else self.orig_df.columns.tolist()
-        self.rhis_df = self._build_rhis_initial_df(evol_cols, self.orig_df.index, rhis_min=rhis_min)
+        evol_cols = cols if cols is not None else self.numeric_orig_df.columns.tolist()
+        self.rhis_df = self._build_rhis_initial_df(evol_cols, self.numeric_orig_df.index, rhis_min=rhis_min)
         for col in evol_cols:
-            ts = self.orig_df[col]
+            ts = self.numeric_orig_df[col]
             self._ts_evol(ts, rhis_min=rhis_min)
 
         logger.info("RHIS evolution dataframe created successfully.")
@@ -262,7 +264,7 @@ class Rhis:
         self.rhis_df.
 
         For every column, the R, H, I and S p-value evolutions are computed
-        (see build_rhis_dict_from_timeseries); the compliance decision is
+        (see build_rhis_evol_dict_from_ts); the compliance decision is
         then based either on the pointwise minimum of those evolutions
         ('min') or on the evolution of a single hypothesis. On top of that,
         the longest trailing slice that passes the tests at self.alpha is
@@ -297,26 +299,26 @@ class Rhis:
             logger.debug(msg)
             raise ValueError(msg)
 
-        repr_df = DataFrame(index=self.orig_df.index)
+        numeric_df = self.numeric_orig_df
+        repr_df = DataFrame(index=self.numeric_orig_df.index)
         summary_rows: dict[str, dict[str, object]] = {}
-        for col in self.orig_df.columns:
-            ts = self.orig_df[col]
-            evol = self.build_rhis_dict_from_timeseries(ts, self.alpha, self.length_init_ts)
-            if stat == 'min':
-                stat_pvalues = list(np.min(list(evol.values()), axis=0))
-            else:
-                stat_pvalues = evol[stat]
-            cut_idxs = self._find_rhis_compliant_idxs(np.asarray(stat_pvalues, dtype=float), self.alpha)
-            numeric_ts = pd.to_numeric(self.orig_df[col], errors='coerce').to_numpy(dtype=float)
-            repr_df[col] = self._slice_and_pad(numeric_ts, cut_idxs)
+        for col in numeric_df.columns:
+            evol_dict = self.build_rhis_evol_dict_from_ts(numeric_df[col], self.alpha, self.length_init_ts)
 
-            original_length = len(numeric_ts)
+            if stat == 'min':
+                stat_pvalues = list(np.min(list(evol_dict.values()), axis=0))
+            else:
+                stat_pvalues = evol_dict[stat]
+
+            cut_idxs = self._find_rhis_compliant_idxs(np.asarray(stat_pvalues, dtype=float), self.alpha)
+            repr_df[col] = self._slice_and_pad(numeric_df[col], cut_idxs)
+            original_length = len(numeric_df[col])
             representative_length = cut_idxs[1] - cut_idxs[0]
-            original_period = _period_label(self.orig_df.index[0], self.orig_df.index[-1])
+            original_period = _period_label(numeric_df.index[0], numeric_df.index[-1])
             representative_start = (
-                self.orig_df.index[cut_idxs[0]] if cut_idxs[0] < original_length else self.orig_df.index[-1]
+                numeric_df.index[cut_idxs[0]] if cut_idxs[0] < original_length else numeric_df.index[-1]
             )
-            representative_period = _period_label(representative_start, self.orig_df.index[-1])
+            representative_period = _period_label(representative_start, numeric_df.index[-1])
 
             summary_rows[col] = {
                 'original_length': original_length,
@@ -324,8 +326,8 @@ class Rhis:
                 'stat': stat,
                 'discarded_percentage': round((original_length - representative_length) / original_length * 100, 2),
                 'remaining_percentage': round(representative_length / original_length * 100, 2),
-                'non_numeric_excluded': int(np.count_nonzero(np.isnan(numeric_ts))),
-                'most_rejected_hypothesis': self._most_rejected_hypothesis(evol, self.alpha),
+                'non_numeric_excluded': int(np.count_nonzero(np.isnan(numeric_df[col]))),
+                'most_rejected_hypothesis': self._most_rejected_hypothesis(evol_dict, self.alpha),
                 'alpha': self.alpha,
                 'original_period': original_period,
                 'representative_period': representative_period,
@@ -507,7 +509,7 @@ class Rhis:
             raise RuntimeError(msg)
 
         plot_rhis_evolution(
-            self.orig_df,
+            self.numeric_orig_df,
             self.rhis_df,
             self.alpha,
             show_repr=show_repr,
@@ -520,12 +522,14 @@ class Rhis:
     def calculate_rhis(
         ts: TimeSeriesFlex,
         alpha: float = DEFAULT_ALPHA,
-        *,
-        constant_series: bool = False,
     ) -> dict[str, float]:
         ts = clean_numeric_array(ts)
 
-        if constant_series or np.all(ts == ts[0]):
+        # The series must have at least 5 numeric values to be tested
+        if len(ts) < 5:
+            return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
+
+        if np.all(ts == ts[0]):
             independence_p_value = np.nan
         else:
             try:

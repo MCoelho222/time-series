@@ -250,7 +250,7 @@ def test_build_rhis_compliant_df_respects_stat(stat) -> None:
 
     repr_df = rhis.build_rhis_compliant_df(stat=stat)
 
-    expected_evol = rhis.build_rhis_dict_from_timeseries(
+    expected_evol = rhis.build_rhis_evol_dict_from_ts(
         rhis.orig_df['flow'], rhis.alpha, rhis.length_init_ts
     )
     if stat == 'min':
