@@ -115,8 +115,6 @@ expectation). The null hypothesis is rejected when $p < \alpha$.
   p-value reflects whether the series has too few or too many phases, so
   a small p-value is never paired with a non-rejection when the
   direction contradicts the alternative.
-- **Degenerate inputs:** a constant series has no distinct phases; the
-  test returns `statistic=0`, `p_value=0.0`, and `reject=True`.
 
 ## Interpretation
 

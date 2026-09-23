@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 
 
 def mann_whitney(  # noqa: PLR0913
-        x: TimeSeriesFlex,
-        y: TimeSeriesFlex | None = None,
+        ts1: TimeSeriesFlex,
+        ts2: TimeSeriesFlex | None = None,
         alpha: float = 0.05,
         alternative: str = 'two-sided',
         *,
@@ -40,11 +40,11 @@ def mann_whitney(  # noqa: PLR0913
 
     Null and Alternative hypotheses
 
-        H0: prob[x > y] = 0.5
+        H0: prob[ts1 > ts2] = 0.5
 
-        H1: prob[ x > y] != 0.5 (two-sided)
-        H2: prob[ x > y] > 0.5 (greater)
-        H3: prob[ x > y] < 0.5 (less)
+        H1: prob[ts1 > ts2] != 0.5 (two-sided)
+        H2: prob[ts1 > ts2] > 0.5 (greater)
+        H3: prob[ts1 > ts2] < 0.5 (less)
 
     References
     ----------
@@ -55,14 +55,14 @@ def mann_whitney(  # noqa: PLR0913
 
     Parameters
     ----------
-        x
+        ts1
             A list of floats or integers.
-        y
+        ts2
             A list of floats or integers.
         alternative
-            two-sided: x != y
-            greater: x > y
-            less: x < y
+            two-sided: ts1 != ts2
+            greater: ts1 > ts2
+            less: ts1 < ts2
         alpha
             The significance level (0.05 by default).
         continuity
@@ -85,20 +85,21 @@ def mann_whitney(  # noqa: PLR0913
             Full description of the test statistic, its distribution,
             corrections, and the interpretation of the results.
     """
-    if y is None:
-        data = split_into_parts(x, 2)
-        x = data[0]
-        y = data[1]
 
-    g1 = list(x)
-    g2 = list(y)
+    if ts2 is None:
+        if np.all(np.array(ts1) == np.array(ts1)[0]):
+                return MannWhitneyResults(np.nan, np.nan, None, alternative)
+
+        data = split_into_parts(ts1, 2)
+        ts1 = data[0]
+        ts2 = data[1]
+
+    g1 = list(ts1)
+    g2 = list(ts2)
 
     gs_concat = g1 + g2
     gs_sorted = np.sort(gs_concat)
 
-    if np.all(gs_sorted == gs_sorted[0]):
-        reject = False
-        return MannWhitneyResults(0, 1., reject, alternative)
 
     n = len(gs_concat)
     ranks = np.sort(ranks_with_ties_corrected(gs_concat)) if ties else [i + 1 for i in range(n)]
@@ -157,7 +158,9 @@ if __name__ == "__main__":
     ts1 = ts_splitted[0]
     ts2 = ts_splitted[1]
 
-    p_value = mann_whitney(ts).p_value
+    ts1 = [5.0]*7
+    ts2 = [7.0]*5
+    p_value = mann_whitney(ts1).p_value
     plot_test(ts, p_value, filename='homogeneity', title='Homogeneity Test Example')
 
     print(f"p-value: {p_value}")

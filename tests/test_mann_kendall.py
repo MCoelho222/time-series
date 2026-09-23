@@ -161,7 +161,7 @@ def test_mann_kendall_constant_input() -> None:
     """
     constant = mann_kendall([5.0] * 8)
 
-    assert constant.statistic == 0
-    assert constant.p_value == pytest.approx(1.0, abs=P_VALUE_TOL)
-    assert not constant.reject
+    assert np.isnan(constant.statistic)
+    assert np.isnan(constant.p_value)
+    assert constant.reject is None
     assert constant.alternative == 'two-sided'

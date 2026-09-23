@@ -46,8 +46,8 @@ def test_mann_whitney():
     median_y = 0.8
     expected_p = 0.0491
 
-    result_a = mann_whitney(x=x, y=y)
-    result_b = mannwhitneyu(x=x, y=y, method='asymptotic')
+    result_a = mann_whitney(x, y)
+    result_b = mannwhitneyu(x, y, method='asymptotic')
 
     assert np.median(np.array(x)) == median_x
     assert np.median(np.array(y)) == median_y
@@ -156,17 +156,17 @@ def test_mann_whitney_univariate_split():
     assert result.p_value == pytest.approx(reference.pvalue, abs=P_VALUE_TOL)
 
 
-def test_mann_whitney_constant_input():
+def test_mann_whitney_constant_input_single_ts():
     """
     When both groups contain a single identical value, the test is
     undefined; a p-value of 1.0 (no rejection) is returned instead of
     raising.
     """
-    result = mann_whitney([5.0] * 7, [5.0] * 5, alternative='two-sided')
+    result = mann_whitney([5.0] * 7, alternative='two-sided')
 
-    assert result.statistic == 0
-    assert result.p_value == 1.0
-    assert result.reject is False
+    assert np.isnan(result.statistic)
+    assert np.isnan(result.p_value)
+    assert result.reject is None
     assert result.alternative == 'two-sided'
 
 

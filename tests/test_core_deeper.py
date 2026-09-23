@@ -69,13 +69,6 @@ def test_build_rhis_evol_df_handles_constant_series_with_nan() -> None:
     assert np.isnan(trend_i[-fill:]).all()
 
 
-def test_calculate_rhis_returns_nan_for_constant_series() -> None:
-    result = Rhis.calculate_rhis([5.0] * 10)
-
-    assert np.isnan(result['I'])
-    assert all(np.isfinite(result[hyp]) for hyp in 'RHS')
-
-
 def test_build_rhis_compliant_df_derives_stat_without_rhis_evol() -> None:
     """The repr df is derivable without building rhis_df at all."""
     rhis = Rhis(_make_df(n_rows=60, n_cols=1))

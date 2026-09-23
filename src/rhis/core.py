@@ -136,7 +136,7 @@ class Rhis:
             that ends at the most recent observation.
         """
         pvalue_ts_last = len(pvalue_ts)
-        if pvalue_ts_last == 0:
+        if pvalue_ts_last == 0 or np.all(np.isnan(pvalue_ts)):
             return (0, 0)
 
         # The first entry tests the complete time series. When p >= alpha
@@ -196,16 +196,16 @@ class Rhis:
 
 
     def _ts_evol(self, ts: Series, *, rhis_min: bool) -> None:
-        evol = self.build_rhis_evol_dict_from_ts(ts, self.alpha, self.length_init_ts)
+        evol_dict = self.build_rhis_evol_dict_from_ts(ts, self.alpha, self.length_init_ts)
 
         if rhis_min:
-            evol = self._add_rhis_min_to_evol(evol)
+            evol_dict = self._add_rhis_min_to_evol(evol_dict)
 
         if self.rhis_df is None:  # pragma: no cover - _build_rhis_evol_df() always sets it before this loop
             msg = "RHIS dataframe has not been initialized."
             raise RuntimeError(msg)
 
-        for hyp, ps in evol.items():
+        for hyp, ps in evol_dict.items():
             self.rhis_df[(ts.name, hyp)] = ps
 
 
@@ -457,10 +457,13 @@ class Rhis:
         all_compliant = True
         for repr_name, hyp_pvalues in pvalues.items():
             for hyp, p_value in hyp_pvalues.items():
-                if p_value < self.alpha:
+                if p_value < self.alpha or np.isnan(p_value):
                     all_compliant = False
-                    msg = (f"Column '{repr_name}' rejected hypothesis '{hyp}' "
-                           f"(p = {p_value:.4f} < alpha = {self.alpha}).")
+                    if np.isnan(p_value):
+                        msg = f"Column '{repr_name}' returned p=nan for '{hyp}'."
+                    else:
+                        msg = (f"Column '{repr_name}' rejected hypothesis '{hyp}' "
+                            f"(p = {p_value:.4f} < alpha = {self.alpha}).")
                     logger.warning(msg)
 
         if all_compliant:
@@ -528,20 +531,10 @@ class Rhis:
         if len(ts) < MIN_TS_LENGTH_FOR_RHIS:
             return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
 
-        if np.all(ts == ts[0]):
-            independence_p_value = np.nan
-        else:
-            try:
-                independence_p_value = wald_wolfowitz(ts, alpha=alpha, on_ranks=True).p_value
-            except ValueError:
-                msg = "Independence test undefined for this slice; recording NaN p-value."
-                logger.debug(msg)
-                independence_p_value = np.nan
-
         return {
             'R': wallis_moore(ts, alpha=alpha).p_value,
             'H': mann_whitney(ts, alpha=alpha).p_value,
-            'I': independence_p_value,
+            'I': wald_wolfowitz(ts, alpha=alpha, on_ranks=False).p_value,
             'S': mann_kendall(ts, alpha=alpha).p_value,
         }
 

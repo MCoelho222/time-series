@@ -74,6 +74,9 @@ def runs_test(  # noqa: C901
     """
     ts = np.array(ts) if isinstance(ts, list) else ts
 
+    if np.all(ts == ts[0]):
+            return RunsTestResults(np.nan, np.nan, None, alternative)
+
     median = np.median(np.array(ts))
     up_runs_ones = []
     down_runs_ones = []
@@ -187,8 +190,7 @@ def wallis_moore(
     """
     ts_arr = np.array(ts)
     if np.all(ts_arr == ts_arr[0]):
-        reject = True
-        return WallisMooreResults(0, 0., reject, alternative)
+        return WallisMooreResults(np.nan, np.nan, None, alternative)
 
     #Group 1 (pluses for zeros)
     signs1 = []

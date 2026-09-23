@@ -137,9 +137,9 @@ def test_runs_test_and_wallis_moore_constant_input() -> None:
     constant_runs = runs_test([5.0] * 8)
     constant_wallis = wallis_moore([5.0] * 8)
 
-    assert constant_runs.statistic == 0
-    assert constant_runs.p_value == 0.0
-    assert constant_runs.reject
-    assert constant_wallis.statistic == 0
-    assert constant_wallis.p_value == 0.0
-    assert constant_wallis.reject
+    assert np.isnan(constant_runs.statistic)
+    assert np.isnan(constant_runs.p_value)
+    assert constant_runs.reject is None
+    assert np.isnan(constant_wallis.statistic)
+    assert np.isnan(constant_wallis.p_value)
+    assert constant_wallis.reject is None
