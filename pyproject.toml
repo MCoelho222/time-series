@@ -36,6 +36,9 @@ requires = [
   [tool.setuptools.dynamic.optional-dependencies]
     dev = {file = "requirements/requirements-dev.txt"}
 
+  [tool.setuptools.package-data]
+    "rhis.plotting" = ["fonts/*.ttf", "fonts/*.txt"]
+
 [tool.distutils.bdist_wheel]
   universal = true
 

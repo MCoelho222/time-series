@@ -76,17 +76,19 @@ def mann_kendall(
             interpretation of the results.
     """
     n = len(ts)
-    ts = np.array(ts)
-    signs = []
+    arr = np.array(ts)
+    if np.all(arr == arr[0]):
+            return MannKendallResults(np.nan, np.nan, None, alternative)
 
+    signs = []
     for i in range(n - 1):
-        s = ts[i + 1] - ts[:i + 1]
+        s = arr[i + 1] - arr[:i + 1]
         signs.extend(np.sign(s))
 
     signs_array = np.array(signs)
     test_s = float(len(signs_array[signs_array > 0]) - len(signs_array[signs_array < 0]))
 
-    ties_data = ranks_with_ties_corrected(ts, ties_data=True)['ties_groups_count']
+    ties_data = ranks_with_ties_corrected(arr, ties_data=True)['ties_groups_count']
 
     ties_factor = 0
     for value in ties_data:
@@ -110,6 +112,7 @@ if __name__ == "__main__":
     from rhis.plotting import plot_test
 
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
+
     p_value = mann_kendall(ts).p_value
     plot_test(ts, p_value, filename='stationarity', title='Stationarity Test Example')
     print(f"p-value: {p_value}")

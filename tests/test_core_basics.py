@@ -250,7 +250,7 @@ def test_build_rhis_compliant_df_respects_stat(stat) -> None:
 
     repr_df = rhis.build_rhis_compliant_df(stat=stat)
 
-    expected_evol = rhis.build_rhis_dict_from_timeseries(
+    expected_evol = rhis.build_rhis_evol_dict_from_ts(
         rhis.orig_df['flow'], rhis.alpha, rhis.length_init_ts
     )
     if stat == 'min':
@@ -285,7 +285,7 @@ def test_calculate_rhis_once_with_full_ts_returns_calculate_rhis_p_values(make_d
     assert set(result) == set(df.columns)
     for column in df.columns:
         expected = Rhis.calculate_rhis(repr_df[column].to_numpy(), alpha=rhis.alpha)
-        assert result[column] == pytest.approx(expected)
+        assert result[column] == pytest.approx(expected, nan_ok=True)
 
 
 def test_calculate_rhis_once_with_full_ts_on_empty_repr_df() -> None:

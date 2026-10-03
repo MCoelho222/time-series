@@ -23,10 +23,6 @@ def clean_numeric_array(values: TimeSeriesFlex) -> NDArray[np.float64]:
         if isfinite(numeric_value):
             numeric_values.append(numeric_value)
 
-    if not numeric_values:
-        msg = 'The time series contains no finite numeric values.'
-        raise ValueError(msg)
-
     return np.asarray(numeric_values, dtype=np.float64)
 
 

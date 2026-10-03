@@ -81,8 +81,7 @@ def wald_wolfowitz(
         raise ValueError(msg)
 
     if np.all(arr == arr[0]):
-        msg = "The time series must contain at least two distinct values."
-        raise ValueError(msg)
+        return WaldWolfowitzResults(np.nan, np.nan, None)
 
     if on_ranks and not ties:
         arr = np.array(to_ranks(arr))
@@ -121,7 +120,6 @@ if __name__ == "__main__":
     from rhis.plotting import plot_test
 
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
-
     ts_p = wald_wolfowitz(ts, on_ranks=False).p_value
     ranks_p = wald_wolfowitz(ts, on_ranks=True).p_value
 

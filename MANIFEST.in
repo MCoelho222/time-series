@@ -1,0 +1,2 @@
+include src/rhis/plotting/fonts/*.ttf
+include src/rhis/plotting/fonts/*.txt

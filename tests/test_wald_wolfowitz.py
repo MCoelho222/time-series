@@ -150,11 +150,6 @@ def test_wald_wolfowitz_strong_positive_dependence() -> None:
     assert result.reject
 
 
-def test_wald_wolfowitz_raises_on_constant_series() -> None:
-    with pytest.raises(ValueError, match='at least two distinct values'):
-        wald_wolfowitz(CONSTANT_SERIES)
-
-
 def test_wald_wolfowitz_raises_on_non_finite_values() -> None:
     series = [np.nan, 1.0, 2.0, 3.0, 4.0]
 
