@@ -538,10 +538,6 @@ class Rhis:
             'S': mann_kendall(ts, alpha=alpha).p_value,
         }
 
-        # # print('CLEAN', ts[:5], ts[::-1][:5], len(ts), result['H'])
-        # if len(ts) == 53:
-        #     print('CLEAN', ts)
-        
         return result
 
 
