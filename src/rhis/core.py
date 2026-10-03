@@ -422,7 +422,8 @@ class Rhis:
         """
         results: dict[str, dict[str, float]] = {}
         for repr_name in repr_df.columns:
-            results[repr_name] = Rhis.calculate_rhis(repr_df[repr_name].to_numpy(), alpha=self.alpha)
+            ts = repr_df[repr_name].to_numpy()[::-1]  # The series needs to be turned, just like the others
+            results[repr_name] = Rhis.calculate_rhis(ts, alpha=self.alpha)
 
         return results
 
@@ -526,16 +527,21 @@ class Rhis:
         alpha: float = DEFAULT_ALPHA,
     ) -> dict[str, float]:
         ts = clean_numeric_array(ts)
-
         # The series must have at least MIN_TS_LENGTH_FOR_RHIS numeric values to be tested
         if len(ts) < MIN_TS_LENGTH_FOR_RHIS:
             return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
 
-        return {
+        result = {
             'R': wallis_moore(ts, alpha=alpha).p_value,
             'H': mann_whitney(ts, alpha=alpha).p_value,
             'I': wald_wolfowitz(ts, alpha=alpha, on_ranks=False).p_value,
             'S': mann_kendall(ts, alpha=alpha).p_value,
         }
+
+        # # print('CLEAN', ts[:5], ts[::-1][:5], len(ts), result['H'])
+        # if len(ts) == 53:
+        #     print('CLEAN', ts)
+        
+        return result
 
 
