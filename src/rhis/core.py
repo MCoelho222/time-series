@@ -5,42 +5,25 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from loguru import logger
-from pandas import DataFrame, Index
+from pandas import DataFrame
 
-from rhis.exceptions import RhisSummaryNotBuiltError, raise_if_no_rhis_df_exists
 from rhis.hypothesis.homogeneity import mann_whitney
 from rhis.hypothesis.independence import wald_wolfowitz
 from rhis.hypothesis.randomness import wallis_moore
 from rhis.hypothesis.stationarity import mann_kendall
-from rhis.plotting import _period_label, plot_rhis_evolution
 from rhis.utils import clean_numeric_array, slice_init, slices_to_evol
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
     from pandas import Series
 
-    from rhis.custom_types import RhisStat
     from rhis.custom_types.data import TimeSeriesFlex
-
 
 MIN_NUMERIC_VALUES = 10
 MIN_TS_LENGTH_FOR_RHIS = 5
 DEFAULT_ALPHA = 0.05
 
 RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
-
-SUMMARY_DF_COLUMNS: tuple[str, ...] = (
-    'original_length',
-    'representative_length',
-    'stat',
-    'discarded_percentage',
-    'remaining_percentage',
-    'non_numeric_excluded',
-    'most_rejected_hypothesis',
-    'alpha',
-    'original_period',
-    'representative_period',
-)
 
 
 class Rhis:
@@ -74,31 +57,34 @@ class Rhis:
             self.pvalues[col] = {'R': [], 'H': [], 'I': [], 'S': [], 'RHIS-min': []}
 
 
-    def get_repr_idxs(self, ts_name: str | None =  None, alpha: float | None = None, *, save_pvalues: bool = False) -> dict[str, tuple[int, int]]:
-        idxs = {}
+    def get_repr_idxs(
+        self,
+        ts_name: str | None = None,
+        alpha: float | None = None,
+        *,
+        save_pvalues: bool = False,
+    ) -> dict[str, tuple[int, int]]:
+        idxs: dict[str, tuple[int, int]] = {}
         alpha = self.alpha if alpha is None else alpha
-        cols = [col for col in self.numeric_orig_df.columns] if ts_name is None else [ts_name,]
+        cols = list(self.numeric_orig_df.columns) if ts_name is None else [ts_name]
+
         for col in cols:
             ts = self.numeric_orig_df[col]
 
-            if self.pvalues is not None:
-                evol_dict = self.pvalues[col]
-                if len(evol_dict['RHIS-min']) == 0:
-                    evol_dict = self._add_rhis_min_to_evol(evol_dict)
-            else:
-                evol_dict = self.build_rhis_evol_dict_from_ts(ts)
+            if len(self.pvalues[col]['RHIS-min']) == 0:
+                evol_dict = self.build_rhis_evol_dict_from_ts(ts, alpha, self.length_init_ts)
                 evol_dict = self._add_rhis_min_to_evol(evol_dict)
 
                 if save_pvalues:
                     self.pvalues[col] = evol_dict
-    
-            idxs[col] = self._find_rhis_compliant_idxs(evol_dict['RHIS-min'], alpha)
+            else:
+                evol_dict = self.pvalues[col]
+
+            idxs[col] = self._find_rhis_compliant_idxs(
+                np.asarray(evol_dict['RHIS-min'], dtype=float), alpha
+            )
 
         self.repr_idxs = idxs
-
-        print(self.numeric_orig_df.info())
-        p_lens = [(key, len(item)) for key, item in self.pvalues.items()]
-        print(p_lens)
 
         return idxs
 
@@ -110,13 +96,13 @@ class Rhis:
         the latest observation.
 
         The p-value series passed in is produced by the evolution
-        process triggered by Rhis.build_rhis_evol_df(); see the
+        process triggered by Rhis.build_rhis_evol_dict_from_ts(); see the
         'pvalue_ts' description below for how to read it.
 
         Parameters
         ----------
             pvalue_ts
-                The evolution of p-values computed by Rhis.build_rhis_evol_df()
+                The evolution of p-values computed by Rhis.build_rhis_evol_dict_from_ts()
                 for a single time series (or for a derived statistic, like
                 'min', computed over its R, H, I and S p-values). The
                 value at index i is the p-value of the slice that starts

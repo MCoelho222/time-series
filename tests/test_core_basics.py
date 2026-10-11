@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from functools import partial
-
 import numpy as np
 import pandas as pd
 import pytest
-from loguru import logger
 
 from rhis.core import Rhis
 
@@ -13,7 +10,6 @@ DEFAULT_ALPHA = 0.05
 SHORT_SERIES_LEN = 5
 LONG_SERIES_LEN = 101
 INITIAL_LEN_FOR_LONG_SERIES = 10
-TOTAL_P_VALUES_TOL = 1e-9
 
 MONTHLY_PERIOD_START = '2020-01-01'
 MONTHLY_PERIOD_END = '2026-01-01'
@@ -82,9 +78,11 @@ def test_constructor_sets_default_attributes() -> None:
     df = _make_df()
     rhis = Rhis(df)
     pd.testing.assert_frame_equal(rhis.orig_df, df)
-    assert rhis.rhis_df is None
-    assert rhis.is_rhis_complete is False
     assert rhis.alpha == DEFAULT_ALPHA
+    assert rhis.repr_idxs is None
+    assert set(rhis.pvalues) == set(df.columns)
+    for col in df.columns:
+        assert set(rhis.pvalues[col]) == {'R', 'H', 'I', 'S', 'RHIS-min'}
 
 
 def test_constructor_length_init_ts_for_short_series() -> None:
@@ -129,53 +127,6 @@ def test_constructor_does_not_raise_for_sparse_numeric_column() -> None:
     assert len(rhis.orig_df) == SPARSE_TS_NON_NUMERIC + SPARSE_TS_NUMERIC
 
 
-@pytest.mark.parametrize(
-    'make_df',
-    [_make_df, _make_messy_monthly_df],
-    ids=['clean_series', 'messy_monthly'],
-)
-def test_build_rhis_evol_df_sets_state_and_structure(make_df) -> None:
-    df = make_df()
-    rhis = Rhis(df)
-    result = rhis.build_rhis_evol_df()
-
-    assert rhis.is_rhis_complete is True
-    assert rhis.rhis_df is result
-
-
-@pytest.mark.parametrize(
-    'make_df',
-    [_make_df, _make_messy_monthly_df],
-    ids=['clean_series', 'messy_monthly'],
-)
-def test_build_rhis_evol_df_p_values_are_within_unit_interval(make_df) -> None:
-    rhis = Rhis(make_df())
-    rhis.build_rhis_evol_df()
-
-    assert rhis.rhis_df is not None
-    values = rhis.rhis_df.to_numpy(dtype=float)
-    finite = np.isfinite(values)
-    assert np.all(values[finite] >= 0.0)
-    assert np.all(values[finite] <= 1.0 + TOTAL_P_VALUES_TOL)
-
-
-@pytest.mark.parametrize(
-    'make_df',
-    [partial(_make_df, n_rows=60, n_cols=1), _make_messy_monthly_df],
-    ids=['clean_series', 'messy_monthly'],
-)
-def test_build_rhis_evol_df_produces_expected_nan_padding(make_df) -> None:
-    df = make_df()
-    rhis = Rhis(df)
-    rhis.build_rhis_evol_df()
-
-    assert rhis.rhis_df is not None
-    for column in df.columns:
-        for hyp in ['R', 'H', 'I', 'S']:
-            series = rhis.rhis_df[(column, hyp)].to_numpy()
-            assert np.count_nonzero(np.isnan(series)) >= rhis.length_init_ts - 1
-
-
 def test_calculate_rhis_returns_four_p_values() -> None:
     ts = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
     result = Rhis.calculate_rhis(ts, alpha=DEFAULT_ALPHA)
@@ -192,12 +143,11 @@ def test_calculate_rhis_ignores_non_numeric_and_missing() -> None:
     assert all(np.isfinite(p_value) for p_value in result.values())
 
 
-def test_build_rhis_compliant_df_works_without_evol() -> None:
-    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
-    repr_df = rhis.build_rhis_compliant_df()
+def test_calculate_rhis_returns_nan_for_too_short_series() -> None:
+    result = Rhis.calculate_rhis([1.0, 2.0], alpha=DEFAULT_ALPHA)
 
-    assert rhis.rhis_df is None
-    assert list(repr_df.columns) == ['series_0']
+    assert set(result) == {'R', 'H', 'I', 'S'}
+    assert all(np.isnan(p_value) for p_value in result.values())
 
 
 @pytest.mark.parametrize(
@@ -205,69 +155,51 @@ def test_build_rhis_compliant_df_works_without_evol() -> None:
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_build_rhis_compliant_df_has_padded_original_columns(make_df) -> None:
+def test_build_rhis_evol_dict_from_ts_shape_and_nan_tail(make_df) -> None:
     df = make_df()
-    orig_cols = df.columns.tolist()
     rhis = Rhis(df)
+    col = df.columns[0]
 
-    repr_df = rhis.build_rhis_compliant_df()
-
-    assert list(repr_df.columns) == orig_cols
-    pd.testing.assert_index_equal(repr_df.index, df.index)
-    for column in orig_cols:
-        orig_series = pd.to_numeric(df[column], errors='coerce')
-        repr_series = repr_df[column]
-        valid = repr_series.notna()
-        pd.testing.assert_series_equal(
-            repr_series[valid], orig_series[valid], check_names=False, check_dtype=False
-        )
-
-
-def test_build_rhis_compliant_df_defaults_to_min_and_keeps_compliant_series() -> None:
-    """A random series is fully RHIS-compliant: the whole series is kept."""
-    df = _make_df(n_rows=60, n_cols=1)
-    rhis = Rhis(df)
-
-    repr_df = rhis.build_rhis_compliant_df()
-
-    for column in df.columns:
-        orig_series = pd.to_numeric(df[column], errors='coerce')
-        repr_series = repr_df[column]
-        assert repr_series.notna().all()
-        pd.testing.assert_series_equal(
-            repr_series, orig_series.astype(float), check_names=False, check_dtype=False
-        )
-
-
-@pytest.mark.parametrize(
-    'stat',
-    ['min', 'R', 'H', 'I', 'S'],
-)
-def test_build_rhis_compliant_df_respects_stat(stat) -> None:
-    rng = np.random.default_rng(3)
-    df = pd.DataFrame({'flow': rng.normal(50, 15, 60)})
-    rhis = Rhis(df)
-
-    repr_df = rhis.build_rhis_compliant_df(stat=stat)
-
-    expected_evol = rhis.build_rhis_evol_dict_from_ts(
-        rhis.orig_df['flow'], rhis.alpha, rhis.length_init_ts
+    evol = Rhis.build_rhis_evol_dict_from_ts(
+        rhis.numeric_orig_df[col], rhis.alpha, rhis.length_init_ts
     )
-    if stat == 'min':
-        stat_values = list(np.min(list(expected_evol.values()), axis=0))
-    else:
-        stat_values = expected_evol[stat]
-    stat_pvalues = np.asarray(stat_values, dtype=float)
-    expected_idxs = rhis._find_rhis_compliant_idxs(stat_pvalues, rhis.alpha)
-    expected = Rhis._slice_and_pad(rhis.orig_df['flow'].to_numpy(dtype=float), expected_idxs)
 
-    np.testing.assert_allclose(repr_df['flow'].to_numpy(dtype=float), expected, equal_nan=True)
+    assert set(evol) == {'R', 'H', 'I', 'S'}
+    for hyp in 'RHIS':
+        ps = np.asarray(evol[hyp], dtype=float)
+        assert len(ps) == len(rhis.numeric_orig_df)
+        assert np.isfinite(ps[0])
+        assert np.isnan(ps[-(rhis.length_init_ts - 1):]).all()
 
 
-def test_build_rhis_compliant_df_rejects_invalid_stat() -> None:
-    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
-    with pytest.raises(ValueError, match=r"Invalid stat 'min2'"):
-        rhis.build_rhis_compliant_df(stat='min2')  # type: ignore[arg-type]
+def test_build_rhis_evol_dict_from_ts_constant_series_yields_nan() -> None:
+    rng = np.random.default_rng(7)
+    df = pd.DataFrame({
+        'constant': [5.0] * 60,
+        'trend': np.linspace(0.0, 100.0, 60) + rng.normal(size=60),
+    })
+    rhis = Rhis(df)
+
+    constant_evol = Rhis.build_rhis_evol_dict_from_ts(
+        rhis.numeric_orig_df['constant'], rhis.alpha, rhis.length_init_ts
+    )
+    trend_evol = Rhis.build_rhis_evol_dict_from_ts(
+        rhis.numeric_orig_df['trend'], rhis.alpha, rhis.length_init_ts
+    )
+
+    assert np.isnan(constant_evol['I']).all()
+    assert np.isfinite(trend_evol['I'][:-(rhis.length_init_ts - 1)]).all()
+    assert np.isnan(trend_evol['I'][-(rhis.length_init_ts - 1):]).all()
+
+
+def test_add_rhis_min_to_evol_is_min_over_hypotheses() -> None:
+    rhis = Rhis(_make_df())
+    evol = {'R': [0.2, 0.8], 'H': [0.6, 0.9], 'I': [0.1, 0.7], 'S': [0.4, 0.3]}
+
+    rhis._add_rhis_min_to_evol(evol)
+
+    assert set(evol) == {'R', 'H', 'I', 'S', 'RHIS-min'}
+    np.testing.assert_allclose(evol['RHIS-min'], [0.1, 0.3])
 
 
 @pytest.mark.parametrize(
@@ -275,46 +207,44 @@ def test_build_rhis_compliant_df_rejects_invalid_stat() -> None:
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_calculate_rhis_once_with_full_ts_returns_calculate_rhis_p_values(make_df) -> None:
+def test_get_repr_idxs_returns_dict_of_index_tuples(make_df) -> None:
     df = make_df()
     rhis = Rhis(df)
-    repr_df = rhis.build_rhis_compliant_df()
 
-    result = rhis.calculate_rhis_once_with_full_ts(repr_df)
+    result = rhis.get_repr_idxs()
 
-    assert set(result) == set(df.columns)
-    for column in df.columns:
-        expected = Rhis.calculate_rhis(repr_df[column].to_numpy(), alpha=rhis.alpha)
-        assert result[column] == pytest.approx(expected, nan_ok=True)
+    assert set(result) == set(rhis.numeric_orig_df.columns)
+    for start, end in result.values():
+        assert 0 <= start <= end == len(rhis.numeric_orig_df)
+    assert rhis.repr_idxs == result
 
 
-def test_calculate_rhis_once_with_full_ts_on_empty_repr_df() -> None:
+def test_get_repr_idxs_single_column_saves_pvalues() -> None:
+    rhis = Rhis(_make_df(n_rows=60, n_cols=2))
+
+    result = rhis.get_repr_idxs('series_0', save_pvalues=True)
+
+    assert set(result) == {'series_0'}
+    assert rhis.repr_idxs == result
+    evol = rhis.pvalues['series_0']
+    assert set(evol) == {'R', 'H', 'I', 'S', 'RHIS-min'}
+    assert len(evol['RHIS-min']) == len(rhis.numeric_orig_df)
+
+    assert rhis.get_repr_idxs('series_0') == result
+
+
+def test_get_repr_idxs_matches_manual_evolution() -> None:
     rhis = Rhis(_make_df(n_rows=60, n_cols=1))
-    empty = pd.DataFrame(index=rhis.orig_df.index)
-    assert rhis.calculate_rhis_once_with_full_ts(empty) == {}
+    col = 'series_0'
 
+    result = rhis.get_repr_idxs(col)
 
-def test_is_all_rhis_compliant_true_for_compliant_repr() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
-    repr_df = rhis.build_rhis_compliant_df()
-
-    assert rhis.is_all_rhis_compliant(repr_df)
-
-
-def test_is_all_rhis_compliant_false_and_logs_rejection() -> None:
-    rhis = Rhis(_make_df(n_rows=60))
-    repr_df = rhis.build_rhis_compliant_df()
-    repr_df['series_0'] = list(range(60))
-
-    records: list[object] = []
-    sink_id = logger.add(records.append, level='DEBUG')
-    try:
-        result = rhis.is_all_rhis_compliant(repr_df)
-    finally:
-        logger.remove(sink_id)
-
-    assert not result
-    assert any("'series_0'" in str(record) and 'rejected' in str(record) for record in records)
+    evol = Rhis.build_rhis_evol_dict_from_ts(
+        rhis.numeric_orig_df[col], rhis.alpha, rhis.length_init_ts
+    )
+    rhis._add_rhis_min_to_evol(evol)
+    expected = rhis._find_rhis_compliant_idxs(np.asarray(evol['RHIS-min'], dtype=float), rhis.alpha)
+    assert result == {col: expected}
 
 
 def _retrieve_idxs(pvalues: list[float]) -> tuple[int, int]:

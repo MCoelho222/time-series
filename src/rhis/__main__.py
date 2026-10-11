@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, cast
 
+import numpy as np
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame
 
 from rhis.core import Rhis
-from rhis.plotting import RHIS_PLOTS_DIR
 
 WIDTH = 78
 
@@ -115,84 +114,76 @@ def main() -> None:  # noqa: PLR0915
     _say('the longest stretch that passes, and sets everything else aside.')
 
     # ------------------------------------------------------------------
-    # 3. The step-by-step p-values
+    # 3. The step-by-step p-values, as a dict
     # ------------------------------------------------------------------
-    rhis_evol_df = rhis.build_rhis_evol_df()
+    col = df.columns[0]
+    evol = Rhis.build_rhis_evol_dict_from_ts(
+        rhis.numeric_orig_df[col], alpha, rhis.length_init_ts
+    )
+    evol_table = pd.DataFrame(
+        {**evol, 'RHIS-min': np.min(list(evol.values()), axis=0)}, index=df.index
+    )
 
-    _section_header('3. THE STEP-BY-STEP P-VALUES   (rhis_evol_df)')
-    _say('Starting at 1871, then 1872, ... up to 1970, every stretch that ends at')
-    _say('1970 is tested. Each cell is a p-value:')
+    _section_header('3. THE STEP-BY-STEP P-VALUES   (evolution dict)')
+    _say('The package hands the whole evolution back as a plain dict: one list of')
+    _say('p-values per hypothesis. Starting at 1871, then 1872, ... up to 1970,')
+    _say('every stretch that ends at 1970 is tested. Each number is a p-value:')
     print()
     print('    near 0  -> that check FAILS for this stretch (below the threshold)')
     print('    near 1  -> the check PASSES')
     print('    NaN     -> a stretch too short to test')
     print()
-    _say(f'The threshold is alpha = {alpha}. Below it, the check fails.')
+    _say(f'The dict keys are {list(evol)}; the threshold is alpha = {alpha}. Below it,')
+    _say('a check fails. "RHIS-min" is the row-wise minimum of the four - the single')
+    _say('number that decides whether a stretch is RHIS-compliant.')
     print()
     print('  Every row is the stretch that starts in that year and ends in 1970:')
     print()
-    print(rhis_evol_df.droplevel(level=0, axis=1).round(4).head(8).to_string())
+    print(evol_table.round(4).head(8).to_string())
     print()
     print('  ...')
     print()
-    print(rhis_evol_df.droplevel(level=0, axis=1).round(4).tail(8).to_string())
+    print(evol_table.round(4).tail(8).to_string())
     print()
     _say('In 1871 almost every check fails (H, I and S are essentially zero): the')
     _say('pre/post-changepoint mixture is not one world. The failures calm down')
-    _say('as we move the starting year forward - until 1894, when all four checks')
+    _say('as we move the starting year forward - until 1896, when all four checks')
     _say('start passing. That break is exactly what RHIS is looking for.')
 
     # ------------------------------------------------------------------
-    # 4. The representative series and the summary
+    # 4. The representative series, as indexes
     # ------------------------------------------------------------------
-    repr_df = rhis.build_rhis_compliant_df()
-    summary = rhis.summary_df
+    idxs = rhis.get_repr_idxs(col)
+    start, end = idxs[col]
 
-    _section_header('4. THE REPRESENTATIVE SERIES   (repr_df)  +  SUMMARY   (summary_df)')
-    repr_count = int(repr_df.notna().sum()['flow'])
-    _say(f'The representative series keeps the 1894-1970 stretch ({repr_count} values)')
-    _say('and leaves the 23 earlier years blank:')
+    _section_header('4. THE REPRESENTATIVE SERIES   (repr indexes dict)')
+    _say('get_repr_idxs() returns the answer as a dict of (start, end) indexes -')
+    _say('positional, and ready to feed straight into .iloc:')
     print()
-    print('  Kept slice (1894-1970):')
-    print(repr_df.dropna().head(5).to_string())
+    print(f'    {idxs}')
+    print()
+    kept = int(end - start)
+    discarded = int(len(df) - kept)
+    discarded_pct = round(100 * discarded / len(df), 1)
+    repr_df = df.iloc[start:end]
+    _say(f'For "flow" that is indexes {start}..{end}: the {repr_df.index[0]}-{repr_df.index[-1]}')
+    _say(f'stretch ({kept} values), setting the {discarded} earlier years aside:')
+    print()
+    print('  Kept slice:')
+    print(repr_df.head(5).to_string())
     print('  ...')
-    print(repr_df.dropna().tail(5).to_string())
+    print(repr_df.tail(5).to_string())
     print()
-
-    col = 'flow'
-    orig_len = int(cast('Any', summary.loc[col, 'original_length']))
-    repr_len = int(cast('Any', summary.loc[col, 'representative_length']))
-    discarded_pct = float(cast('Any', summary.loc[col, 'discarded_percentage']))
-    non_numeric = int(cast('Any', summary.loc[col, 'non_numeric_excluded']))
-    most_rejected = str(cast('Any', summary.loc[col, 'most_rejected_hypothesis']))
-    original_period = str(cast('Any', summary.loc[col, 'original_period']))
-    representative_period = str(cast('Any', summary.loc[col, 'representative_period']))
-
-    print('  The whole story in one table:')
-    print()
-    print(rhis.summary_df.to_string())
-    print()
-    _say('Reading it:')
-    _say(f'  - we started with {orig_len} years ({original_period}) and kept {repr_len} ({representative_period})')
-    _say(f'  - the {100 - repr_len} discarded years ({discarded_pct}% of the record) would have broken the checks')
-    _say(f'  - {non_numeric} non-numeric values had to be thrown away')
-    _say(f"  - the check rejected most often was '{most_rejected}': the river level clearly")
-    _say('    "remembers" itself year after year, until the regime finally settled')
+    _say(f'So we started with {len(df)} years and kept {kept}; the {discarded} discarded')
+    _say(f'years ({discarded_pct}% of the record) would have broken the checks.')
 
     # ------------------------------------------------------------------
-    # 5. The picture and the verdict
+    # 5. The verdict
     # ------------------------------------------------------------------
-    _section_header('5. THE PICTURE AND THE VERDICT')
-    rhis.plot_evolution(
-        figtitle='RHIS-compliant Series From Nile River Annual Flow (1871-1970)',
-        repr_df=repr_df,
-    )
-    plot_path = Path(RHIS_PLOTS_DIR) / f'RHIS {col}.PNG'
-    _say('A figure was saved for you, with the p-values and the recovered slice:')
-    _say(f'    {plot_path}')
-    print()
+    _section_header('5. THE VERDICT')
+    repr_ts = rhis.numeric_orig_df[col].iloc[start:end].to_numpy()
+    repr_rhis = Rhis.calculate_rhis(repr_ts, alpha)
 
-    repr_rhis = rhis.calculate_rhis_once_with_full_ts(repr_df)[col]
     _say('Final p-values for the representative series:')
     print()
     labels = {
@@ -207,11 +198,11 @@ def main() -> None:  # noqa: PLR0915
         note = '  (just above the line!)' if 0 <= pv - alpha < 0.01 else ''  # noqa: PLR2004
         print(f'    {hyp} - {short_name:<14}: {pv:.4f}   -> {status}{note}')
     print()
-    _say(f'All four checks pass at alpha = {alpha}, so the {representative_period} slice is a')
-    _say('trustworthy, RHIS-compliant representative series.')
+    _say(f'All four checks pass at alpha = {alpha}, so the {repr_df.index[0]}-{repr_df.index[-1]} slice')
+    _say('is a trustworthy, RHIS-compliant representative series.')
     print()
     _ruler()
-    _say('And there it is: a hundred years of complicated history, and 77 clean')
+    _say(f'And there it is: a hundred years of complicated history, and {kept} clean')
     _say('years emerge - exactly the period you can safely describe, model or')
     _say('forecast. The post-1890s "new Nile" that hydrologists talk about is the')
     _say('one RHIS found by itself!')

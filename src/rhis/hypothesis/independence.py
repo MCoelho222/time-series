@@ -117,19 +117,9 @@ def wald_wolfowitz(
     return WaldWolfowitzResults(r, p, reject)
 
 if __name__ == "__main__":
-    from rhis.plotting import plot_test
-
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
     ts_p = wald_wolfowitz(ts, on_ranks=False).p_value
     ranks_p = wald_wolfowitz(ts, on_ranks=True).p_value
-
-    plot_test(
-        ts,
-        ts_p,
-        ranks_p_value=ranks_p,
-        filename='independence',
-        title='Independence Test Example',
-    )
 
     print(f"p-value (series): {ts_p}")
     print(f"p-value (ranks): {ranks_p}")

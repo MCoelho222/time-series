@@ -54,20 +54,24 @@ def slice_init(n: int) -> int:
 
 def slices_to_evol(ts: TimeSeriesFlex, start: int) -> list[TimeSeriesFlex]:
     """
-    Break a flat list into a list of lists (2D).
+    Break a flat series into its suffix slices.
 
-    Each list will have an increasing number of elements.
-    The element with index n will have one more element than element with index n-1.
+    Each slice starts one position later than the previous one and runs to
+    the very end of the series, so the number of elements decreases by one
+    from one slice to the next. The first slice is the complete series and
+    the last one has exactly `start` elements.
 
     Parameters
     ----------
         ts
             A list with integers or floats.
+        start
+            The minimum number of elements a slice must have to be tested.
 
     Returns
     -------
-        A 2D list of lists. The lists are slices with increasing number of elements,
-        so that the last is the complete timeseries.
+        A 2D list of lists: every suffix slice of `ts` with at least
+        `start` elements, from the complete series down to the shortest one.
     """
     slices = []
     for i in range(len(ts) - (start - 1)):

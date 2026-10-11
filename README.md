@@ -16,9 +16,9 @@ When determining whether a time series is representative, the first step is to a
 
 However, the goal is to retain as much information as possible, so the longest RHIS-compliant period as possible should be selected. This means that the data selection process requires testing the RHIS hypotheses each time a new observation is added to the selected period, starting from the most recent. This is where this program comes in.
 
-The program provides a method for applying the RHIS tests to a time series with an increasing number of observations. The analysis starts with a small number of the most recent observations, such as the first 5 or 10, and then adds one observation at a time. The RHIS tests are performed each time the number of observations increases.
+The program applies the RHIS tests to every period that ends at the most recent observation, starting with a small window of the last 5 or 10 values and growing it one observation at a time until the complete series is tested. The results are returned as a simple dict: one list of p-values per hypothesis, where the entry at position i corresponds to the period that starts at observation i and runs to the most recent one.
 
-When the test results are plotted sequentially, it becomes possible to identify the point at which the data first become fully compliant with the RHIS hypotheses. If a representative period exists, this point can be used as a boundary for selecting the data. In this way, the method identifies the longest period that satisfies all RHIS requirements while retaining as much information as possible.
+By reading these p-value evolutions sequentially, it becomes possible to identify the point at which the data first become fully compliant with the RHIS hypotheses. If a representative period exists, this point is used as the boundary for selecting the data. In this way, the method identifies the longest period that satisfies all RHIS requirements while retaining as much information as possible.
 
 ## Methods - Hypothesis (RHIS)
 
@@ -82,10 +82,18 @@ from rhis import Rhis
 df = pd.read_csv("data.csv")
 
 rhis = Rhis(df)
-rhis.build_rhis_evol_df()
-repr_df = rhis.build_rhis_compliant_df()
-rhis.plot_evolution(repr_df=repr_df)
 
-# Per-series summary of the representative selection
-summary_df = rhis.summary_df
+# 1. The RHIS evolution of a series, as a dict with one list of p-values per
+#    hypothesis ("R", "H", "I", "S"). Entry i is the p-value of the period
+#    that starts at observation i and runs to the most recent one.
+evol = Rhis.build_rhis_evol_dict_from_ts(
+    rhis.numeric_orig_df["flow"], rhis.alpha, rhis.length_init_ts
+)
+
+# 2. The representative series, as positional (start, end) indexes:
+#    {"flow": (start, end)}, ready to slice with .iloc[start:end].
+repr_idxs = rhis.get_repr_idxs()
+
+start, end = repr_idxs["flow"]
+representative_df = df.iloc[start:end]
 ```
