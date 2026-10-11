@@ -25,16 +25,3 @@ def clean_numeric_array(values: TimeSeriesFlex) -> NDArray[np.float64]:
 
     return np.asarray(numeric_values, dtype=np.float64)
 
-
-def nans_nums_from_array(
-    pvalue_ts: NDArray[np.float64], *, only_nums: bool = True
-) -> NDArray[np.float64] | tuple[NDArray[np.float64], NDArray[np.float64]]:
-    pvalue_ts_mask = np.isnan(pvalue_ts)
-    pvalue_ts_nums = pvalue_ts[~pvalue_ts_mask]
-
-    if only_nums:
-        return pvalue_ts_nums
-
-    pvalue_ts_nan = pvalue_ts[pvalue_ts_mask]
-
-    return pvalue_ts_nums, pvalue_ts_nan

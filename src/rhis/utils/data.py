@@ -71,7 +71,11 @@ def slices_to_evol(ts: TimeSeriesFlex, start: int) -> list[TimeSeriesFlex]:
     """
     slices = []
     for i in range(len(ts) - (start - 1)):
-        slices.append(ts[: i + start])
+        slices.append(ts[i:])
 
     return slices
+
+if __name__ == "__main__":
+    ts = [2, 4, 5, 1, 10, 12, 33, 22, 21, 15]
+    print(slices_to_evol(ts, 5))
 
