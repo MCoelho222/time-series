@@ -182,6 +182,7 @@ def test_build_rhis_evol_dict_shape_and_nan_tail(make_df) -> None:
     for hyp in ('R', 'H', 'I', 'S', 'RHIS-min'):
         ps = np.asarray(evol[hyp], dtype=float)
         assert len(ps) == len(rhis.numeric_orig_df)
+        assert len(ps) == len(rhis.orig_df)
         assert np.isfinite(ps[0])
         assert np.isnan(ps[-(rhis.length_init_ts - 1):]).all()
     assert rhis.pvalues[col] == evol
@@ -361,3 +362,6 @@ def test_find_rhis_compliant_idxs_leading_nan_keeps_full_series() -> None:
 def test_find_rhis_compliant_idxs_empty_series() -> None:
     """An empty p-value series yields an empty representative slice."""
     assert _retrieve_idxs([]) == (0, 0)
+
+
+# TODO: include test for Rhis.numeric_orig_df (keeps all numeric values from all columns, at the same order (rows and columns), converts all non-numeric to nans, etc.)

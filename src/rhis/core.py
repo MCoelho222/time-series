@@ -28,6 +28,7 @@ RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
 
 class Rhis:
     def __init__(self, df: DataFrame) -> None:
+        # TODO: We should accept MultiIndex and dict
         if (not isinstance(df, pd.DataFrame) or isinstance(df.index, pd.MultiIndex)):
             msg = "The parameter 'df' must be a non-MultiIndex pandas.DataFrame."
             logger.debug(msg)
@@ -57,7 +58,7 @@ class Rhis:
         for col in self.numeric_orig_df.columns:
             self.pvalues[col] = {'R': [], 'H': [], 'I': [], 'S': [], 'RHIS-min': []}
 
-
+    # TODO: alpha should be removed from all methods but _find_rhis_compliant_idxs
     def build_rhis_evol_dict(
         self,
         ts_name: str | None = None,
@@ -192,6 +193,7 @@ class Rhis:
         ts = clean_numeric_array(ts)
         # The series must have at least MIN_TS_LENGTH_FOR_RHIS numeric values to be tested
         if len(ts) < MIN_TS_LENGTH_FOR_RHIS:
+            # TODO: log this
             return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
 
         result = {
