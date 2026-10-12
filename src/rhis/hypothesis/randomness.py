@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from rhis.custom_types import RunsTestResults, WallisMooreResults
-from rhis.utils import test_decision_normal
+from rhis.utils import p_value_normal_directional
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -120,8 +120,8 @@ def runs_test(  # noqa: C901
     except ZeroDivisionError:
         return RunsTestResults(0, 0.0, alternative)
 
-    decision = test_decision_normal(stat, stat_mean, z, alternative)
-    return RunsTestResults(stat, decision.p_value, alternative)
+    result = p_value_normal_directional(stat, stat_mean, z, alternative)
+    return RunsTestResults(stat, result.p_value, alternative)
 
 
 def wallis_moore(
@@ -233,8 +233,8 @@ def wallis_moore(
     sigma = ((16. * n - 29.) / 90.) ** 0.5
     z = (runs - expected_runs) / sigma
 
-    decision = test_decision_normal(runs, expected_runs, z, alternative)
-    return WallisMooreResults(runs, decision.p_value, alternative)
+    result = p_value_normal_directional(runs, expected_runs, z, alternative)
+    return WallisMooreResults(runs, result.p_value, alternative)
 
 
 if __name__ == "__main__":

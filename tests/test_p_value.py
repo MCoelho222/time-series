@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from rhis.utils import p_value_normal
-from rhis.utils import test_decision_normal as decision_normal
+from rhis.utils import p_value_normal, p_value_normal_directional
 
 Z_NULL = 0.0
 Z_MILD = 1.5
@@ -43,22 +42,22 @@ def test_p_value_normal_decreases_as_z_grows() -> None:
 
 
 # =====================================================================
-# test_decision_normal
+# p_value_normal_directional
 # =====================================================================
 
 
-def test_decision_normal_two_sided_returns_doubled_tail_p_value() -> None:
-    result = decision_normal(0.0, 0.0, Z_STRONG, 'two-sided')
+def test_p_value_normal_directional_two_sided_returns_doubled_tail_p_value() -> None:
+    result = p_value_normal_directional(0.0, 0.0, Z_STRONG, 'two-sided')
     assert result.p_value == pytest.approx(0.0455, abs=P_VALUE_TOL)
 
 
-def test_decision_normal_two_sided_mild_gives_expected_p_value() -> None:
-    result = decision_normal(0.0, 0.0, Z_MILD, 'two-sided')
+def test_p_value_normal_directional_two_sided_mild_gives_expected_p_value() -> None:
+    result = p_value_normal_directional(0.0, 0.0, Z_MILD, 'two-sided')
     assert result.p_value == pytest.approx(0.1336, abs=P_VALUE_TOL)
 
 
-def test_decision_normal_two_sided_clamps_p_value_to_one() -> None:
-    result = decision_normal(0.0, 0.0, Z_NULL, 'two-sided')
+def test_p_value_normal_directional_two_sided_clamps_p_value_to_one() -> None:
+    result = p_value_normal_directional(0.0, 0.0, Z_NULL, 'two-sided')
     assert result.p_value == 1.0
 
 
@@ -70,8 +69,8 @@ def test_decision_normal_two_sided_clamps_p_value_to_one() -> None:
         (3.0, 2.0, 1.0 - 0.0228),
     ],
 )
-def test_decision_normal_less_keeps_lower_tail_p_value(stat, stat_mean, expected_p) -> None:
-    result = decision_normal(stat, stat_mean, Z_STRONG, 'less')
+def test_p_value_normal_directional_less_keeps_lower_tail_p_value(stat, stat_mean, expected_p) -> None:
+    result = p_value_normal_directional(stat, stat_mean, Z_STRONG, 'less')
     assert result.p_value == pytest.approx(expected_p, abs=P_VALUE_TOL)
 
 
@@ -83,23 +82,23 @@ def test_decision_normal_less_keeps_lower_tail_p_value(stat, stat_mean, expected
         (2.0, 2.0, 1.0 - 0.0228),
     ],
 )
-def test_decision_normal_greater_keeps_upper_tail_p_value(stat, stat_mean, expected_p) -> None:
-    result = decision_normal(stat, stat_mean, Z_STRONG, 'greater')
+def test_p_value_normal_directional_greater_keeps_upper_tail_p_value(stat, stat_mean, expected_p) -> None:
+    result = p_value_normal_directional(stat, stat_mean, Z_STRONG, 'greater')
     assert result.p_value == pytest.approx(expected_p, abs=P_VALUE_TOL)
 
 
-def test_decision_normal_one_sided_keeps_single_tailed_p_value() -> None:
-    result = decision_normal(1.0, 2.0, Z_STRONG, 'less')
+def test_p_value_normal_directional_one_sided_keeps_single_tailed_p_value() -> None:
+    result = p_value_normal_directional(1.0, 2.0, Z_STRONG, 'less')
     assert result.p_value == pytest.approx(0.0228, abs=P_VALUE_TOL)
 
 
-def test_decision_normal_one_sided_opposite_side_has_large_p_value() -> None:
+def test_p_value_normal_directional_one_sided_opposite_side_has_large_p_value() -> None:
     """
     When the statistic lies on the opposite side of the mean, the
     one-sided p-value is large (above 0.5) instead of misleadingly small.
     """
-    less = decision_normal(3.0, 2.0, Z_STRONG, 'less')
-    greater = decision_normal(1.0, 2.0, Z_STRONG, 'greater')
+    less = p_value_normal_directional(3.0, 2.0, Z_STRONG, 'less')
+    greater = p_value_normal_directional(1.0, 2.0, Z_STRONG, 'greater')
 
     assert less.p_value == pytest.approx(1.0 - 0.0228, abs=P_VALUE_TOL)
     assert less.p_value > HALF_P_VALUE
@@ -107,7 +106,7 @@ def test_decision_normal_one_sided_opposite_side_has_large_p_value() -> None:
     assert greater.p_value > HALF_P_VALUE
 
 
-def test_decision_normal_returns_p_value_and_alternative() -> None:
-    result = decision_normal(3.0, 2.0, Z_STRONG, 'greater')
+def test_p_value_normal_directional_returns_p_value_and_alternative() -> None:
+    result = p_value_normal_directional(3.0, 2.0, Z_STRONG, 'greater')
     assert result.p_value == pytest.approx(0.0228, abs=P_VALUE_TOL)
     assert result.alternative == 'greater'

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from rhis.custom_types import MannKendallResults
-from rhis.utils import ranks_with_ties_corrected, test_decision_normal
+from rhis.utils import p_value_normal_directional, ranks_with_ties_corrected
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -99,9 +99,9 @@ def mann_kendall(
     else:
         z = condition_value
 
-    decision = test_decision_normal(test_s, condition_value, z, alternative)
+    result = p_value_normal_directional(test_s, condition_value, z, alternative)
 
-    return MannKendallResults(test_s, decision.p_value, alternative)
+    return MannKendallResults(test_s, result.p_value, alternative)
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]

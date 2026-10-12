@@ -360,4 +360,6 @@ def test_find_rhis_compliant_idxs_empty_series() -> None:
     assert _retrieve_idxs([]) == (0, 0)
 
 
-# TODO: include test for Rhis.numeric_orig_df (keeps all numeric values from all columns, at the same order (rows and columns), converts all non-numeric to nans, etc.)
+# TODO(marcelo): include test for Rhis.numeric_orig_df (keeps all numeric  # noqa: TD003
+#     values from all columns, at the same order (rows and columns), converts
+#     all non-numeric to nans, etc.)

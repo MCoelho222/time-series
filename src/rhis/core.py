@@ -28,7 +28,7 @@ RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
 
 class Rhis:
     def __init__(self, df: DataFrame) -> None:
-        # TODO: We should accept MultiIndex and dict
+        # TODO(marcelo): We should accept MultiIndex and dict input.  # noqa: TD003
         if (not isinstance(df, pd.DataFrame) or isinstance(df.index, pd.MultiIndex)):
             msg = "The parameter 'df' must be a non-MultiIndex pandas.DataFrame."
             logger.debug(msg)

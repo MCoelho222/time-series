@@ -36,6 +36,6 @@ class MannKendallResults(NamedTuple):
     alternative: str
 
 
-class TestDecisionNormal(NamedTuple):
+class NormalPValue(NamedTuple):
     p_value: float
     alternative: str

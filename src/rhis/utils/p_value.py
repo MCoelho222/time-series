@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import scipy.stats as sts
 
-from rhis.custom_types import TestDecisionNormal
+from rhis.custom_types import NormalPValue
 
 
 def p_value_normal(z: float) -> float:
@@ -21,12 +21,12 @@ def p_value_normal(z: float) -> float:
     return 1. - sts.norm.cdf(abs(z))
 
 
-def test_decision_normal(
+def p_value_normal_directional(
         stat: float,
         stat_mean: float,
         z: float,
         alternative: str,
-        ) -> TestDecisionNormal:
+        ) -> NormalPValue:
     """
     Compute p-value using normal approximation with direction-aware handling.
 
@@ -48,7 +48,7 @@ def test_decision_normal(
     Return
     ------
         A namedtuple
-            ('TestDecisionNormal', ['p_value', 'alternative'])
+            ('NormalPValue', ['p_value', 'alternative'])
     """
     p = p_value_normal(z)
 
@@ -62,6 +62,6 @@ def test_decision_normal(
     if alternative == 'greater':
         p = p if stat > stat_mean else 1. - p
 
-    return TestDecisionNormal(p, alternative)
+    return NormalPValue(p, alternative)
 
 
