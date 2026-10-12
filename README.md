@@ -1,49 +1,76 @@
 # RHIS
 
-This repository presents four methods that can be applied simultaneously to time series to detect variability patterns. Essentially, these methods assess whether a time series meets the basic assumptions required for statistical representativeness. In other words, the use of statistical methods for frequency analysis depends on whether the data satisfy the hypotheses of randomness, homogeneity, independence, and stationarity (RHIS).
+## What is RHIS?
 
-If at least one of these hypotheses is rejected, there is a high likelihood that a variability pattern, such as a trend, shift, and/or seasonality, is present in the time series. In such cases, statistical methods may not produce representative results.
+RHIS stands for **R**andomness, **H**omogeneity, **I**ndependence and **S**tationarity. These are the four basic assumptions a time series is expected to satisfy to be considered *statistically representative* (Naghettini, 2007; Coelho et al., 2017; Coelho, 2019). They underpin almost every frequency analysis, design flood or trend study: if these assumptions do not hold, the results may not reflect current conditions.
 
-To obtain representative results, an appropriate period of data should be selected — one that reflects the current conditions and can potentially be used to support planning for future periods.
+Each assumption is checked with a well-known non-parametric test:
 
-In the context of water resources management, for example, the continuous and unplanned expansion of cities causes rainfall runoff to reach river channels more quickly due to increased soil impermeabilization. As a result, streamflow data may increase year after year, indicating a trend in the time series.
+* **Randomness (R)** — Wallis-Moore phase test
+* **Homogeneity (H)** — Mann-Whitney U test
+* **Independence (I)** — Wald-Wolfowitz serial-correlation test
+* **Stationarity (S)** — Mann-Kendall trend test
 
-When this trend is statistically confirmed, a strategy for data selection or treatment should be implemented. Ultimately, the selected data should satisfy the RHIS hypotheses.
+When one or more of these hypotheses are rejected, the record probably contains a variability pattern rather than pure noise. A few everyday examples:
 
-## How this package can help you?
+* **Urban growth** — impervious surfaces speed up rainfall runoff, so streamflow tends to rise year after year (a trend).
+* **A new reservoir upstream** — flows downstream settle to a new level once the dam starts operating (a shift).
+* **Changes in land use or climate** — the seasonal and year-to-year behaviour changes, adding cycles or irregular swings.
+* **The Nile** — the example shipped with this package is a classic record with a clear change point.
 
-When determining whether a time series is representative, the first step is to apply the RHIS tests to the complete time series. If one or more hypotheses are rejected, one possible strategy is to select a period within the time series that better represents the current conditions.
+## What it does?
 
-However, the goal is to retain as much information as possible, so the longest RHIS-compliant period as possible should be selected. This means that the data selection process requires testing the RHIS hypotheses each time a new observation is added to the selected period, starting from the most recent. This is where this program comes in.
+RHIS finds the **longest recent stretch of a time series that passes all four tests** — in other words, the longest part of the record you can safely use.
 
-The program applies the RHIS tests to every period that ends at the most recent observation, starting with a small window of the last 5 or 10 values and growing it one observation at a time until the complete series is tested. The results are returned as a simple dict: one list of p-values per hypothesis, where the entry at position i corresponds to the period that starts at observation i and runs to the most recent one.
+It tests every window that ends at the most recent observation: it starts with the smallest usable window (the last 5 or 10 values) and grows it one observation at a time until the complete series has been tested. Every window gets a p-value per hypothesis, and the results come back as a simple dict. Read from the oldest to the most recent starting point, the p-values show where the series first becomes fully RHIS-compliant — and that point is the selection boundary.
 
-By reading these p-value evolutions sequentially, it becomes possible to identify the point at which the data first become fully compliant with the RHIS hypotheses. If a representative period exists, this point is used as the boundary for selecting the data. In this way, the method identifies the longest period that satisfies all RHIS requirements while retaining as much information as possible.
+## What do these tests actually test?
 
-## Methods - Hypothesis (RHIS)
-
-* **Runs Test** - randomness
-* **Mann-Whitney** - homogeneity
-* **Wald-Wolfovitz** - independence
-* **Mann-Kendall** - stationarity (trend)
+Every test returns a **p-value**: the probability of seeing a pattern at least this strong if the assumption were really true. A small p-value is evidence against the assumption. In RHIS an assumption is rejected when its p-value falls below the significance level (alpha), which is 0.05 by default. Here is what each of the four tests looks at.
 
 ### Randomness
 
-Briefly, the runs test checks whether there are too many values above or below the median or whether another pattern exists in the sequence of values relative to the median. Randomness is rejected if a statistically significant pattern is detected at the chosen significance level.
+A random series has no systematic order. The randomness test (Wallis-Moore) counts the "ups" and "downs" in the series: a random series changes direction often, a series with too few changes keeps moving the same way (trend-like), and one with too many changes keeps zig-zagging. Randomness is rejected when this pattern is statistically significant at the chosen significance level.
 
 ### Homogeneity
 
-The homogeneity test checks whether the two halves of the time series are statistically equivalent. Homogeneity is rejected if one half is significantly greater or smaller than the other at the chosen significance level.
+A homogeneous series behaves like a single population from beginning to end. The test (Mann-Whitney) splits the record into two halves and compares them. Homogeneity is rejected if one half is systematically larger or smaller than the other at the chosen significance level — a sign of a shift.
 
 ### Independence
 
-A time series has dependence when one observation influences or is related to the following observations. For example, after a period of heavy rainfall, daily streamflow measurements may follow a pattern in which flows gradually increase or decrease as groundwater continues to contribute to the river. A similar pattern can occur after rainfall stops, as the streamflow gradually decreases.
+A series is independent when one observation tells you nothing about the next. In practice values often carry memory: after a wet period, groundwater keeps feeding the river, so flows stay high and then decay slowly. The test (Wald-Wolfowitz) checks whether neighbouring values are too similar (positive correlation) or too different (negative correlation). Independence is rejected when this dependence is statistically significant at the chosen significance level.
 
-Independence is rejected when this type of temporal dependence is statistically significant at the chosen significance level.
+### Stationarity
 
-## Stationarity
+A stationary series keeps its statistical behaviour over time and, in particular, has no lasting upward or downward trend. The test (Mann-Kendall) compares every pair of observations and asks whether increases clearly outnumber decreases (or the reverse). Stationarity is rejected when such a monotonic trend is statistically significant at the chosen significance level.
 
-When a time series consistently increases or decreases over time, it is considered non-stationary. The stationarity hypothesis is rejected when this behavior is statistically significant at the chosen significance level.
+## What to keep in mind
+
+RHIS gives you statistics; you bring the context. A few things are worth knowing before you act on a result.
+
+### What kind of series it works with
+
+RHIS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. Each column needs at least 10 numeric values to be considered, and every window it tests needs a handful of values (5, or 10 for long records). Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
+
+### What the tests can and cannot tell you
+
+These are statistical tests, not detectors of causes. A "fail" tells you a pattern is unlikely to be pure chance; it does not tell you why. A "pass" is not a certificate that the data are sound. On short records a real trend or shift can go unnoticed for lack of evidence; on very long records even a tiny, physically meaningless change can look significant. The threshold (alpha, 0.05 by default) is a convention, not a law of nature.
+
+### Outliers
+
+An outlier is a value far from the rest — sometimes real (a record flood) and sometimes a mistake (a typo, a sensor glitch, a unit mix-up). These tests work with the order, ranks, or signs of the values rather than their size, so they tolerate outliers better than a simple average. Even so, one extreme value (say 999.9 instead of 99.9) can still shift the rankings and change the chosen period. RHIS does not detect or remove outliers: look at them first, fix genuine data-entry errors, and use judgement for the real extremes.
+
+### RHIS cannot see your time step
+
+The tests read a sequence of numbers, not dates. They do not know whether your data are annual, monthly, daily, or irregular, and they do not see gaps. Three practical consequences:
+
+- A trend in monthly data is a different statement from a trend in annual data, and a long daily record can flag smaller changes than a short annual one, simply because it has more observations.
+- Seasonality is not removed. Monthly values with a strong seasonal cycle can look "non-random" because of the seasons alone. When that matters, aggregate to a suitable step (for example, annual values) or use seasonally adjusted data.
+- Missing or irregularly spaced records are treated as if the sequence simply continued, so a gap is invisible and can mislead.
+
+### Interpret in context
+
+A small p-value means "this pattern is unlikely to be chance" — not "the river has changed". A large p-value means "no evidence of a problem here" — not "the data are correct". Always read the numbers alongside what you know: new construction or a dam, land-use change, a relocated gauge, a new instrument or analyst, a change in sampling. Treat the representative period as a well-supported suggestion for analysis, not a promise about future conditions.
 
 ## Scientific foundations
 
@@ -83,12 +110,12 @@ df = pd.read_csv("data.csv")
 
 rhis = Rhis(df)
 
-# 1. The RHIS evolution of a series, as a dict with one list of p-values per
-#    hypothesis ("R", "H", "I", "S"). Entry i is the p-value of the period
-#    that starts at observation i and runs to the most recent one.
-evol = Rhis.build_rhis_evol_dict_from_ts(
-    rhis.numeric_orig_df["flow"], rhis.alpha, rhis.length_init_ts
-)
+# 1. The RHIS evolution, as a nested dict: one list of p-values per hypothesis
+#    ("R", "H", "I", "S") plus their row-wise minimum ("RHIS-min"). Entry i is
+#    the p-value of the period that starts at observation i and runs to the
+#    most recent one.
+evolutions = rhis.build_rhis_evol_dict()
+evol = evolutions["flow"]
 
 # 2. The representative series, as positional (start, end) indexes:
 #    {"flow": (start, end)}, ready to slice with .iloc[start:end].

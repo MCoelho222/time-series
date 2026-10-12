@@ -6,8 +6,9 @@ process (independence).
 
 The implementation follows the serial-correlation test introduced by
 Wald & Wolfowitz (1943), using the circular definition of the
-statistic. It is the test adopted by the RHIS *independence* component
-and is applied on the ranks of the series by default.
+statistic. It is the test adopted by the RHIS *independence* component,
+where it is applied on the ranks of the series (distribution-free and
+robust to outliers).
 
 ## Function
 

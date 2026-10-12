@@ -53,40 +53,42 @@ class Rhis:
         self.repr_idxs: dict[str, tuple[int, int]] | None = None
 
         self.pvalues: dict[str, dict[str, list[float]]] = {}
+        self.pvalues_alpha: dict[str, float] = {}
         for col in self.numeric_orig_df.columns:
             self.pvalues[col] = {'R': [], 'H': [], 'I': [], 'S': [], 'RHIS-min': []}
+
+
+    def build_rhis_evol_dict(
+        self,
+        ts_name: str | None = None,
+        alpha: float | None = None,
+    ) -> dict[str, dict[str, list[float]]]:
+        alpha = self.alpha if alpha is None else alpha
+        cols = list(self.numeric_orig_df.columns) if ts_name is None else [ts_name]
+
+        for col in cols:
+            if len(self.pvalues[col]['RHIS-min']) == 0 or self.pvalues_alpha.get(col) != alpha:
+                evol_dict = self._evol_dict_from_ts(self.numeric_orig_df[col], alpha, self.length_init_ts)
+                self.pvalues[col] = self._add_rhis_min_to_evol(evol_dict)
+                self.pvalues_alpha[col] = alpha
+
+        return {col: self.pvalues[col] for col in cols}
 
 
     def get_repr_idxs(
         self,
         ts_name: str | None = None,
         alpha: float | None = None,
-        *,
-        save_pvalues: bool = False,
     ) -> dict[str, tuple[int, int]]:
-        idxs: dict[str, tuple[int, int]] = {}
         alpha = self.alpha if alpha is None else alpha
-        cols = list(self.numeric_orig_df.columns) if ts_name is None else [ts_name]
+        evols = self.build_rhis_evol_dict(ts_name, alpha)
 
-        for col in cols:
-            ts = self.numeric_orig_df[col]
+        self.repr_idxs = {
+            col: self._find_rhis_compliant_idxs(np.asarray(evol['RHIS-min'], dtype=float), alpha)
+            for col, evol in evols.items()
+        }
 
-            if len(self.pvalues[col]['RHIS-min']) == 0:
-                evol_dict = self.build_rhis_evol_dict_from_ts(ts, alpha, self.length_init_ts)
-                evol_dict = self._add_rhis_min_to_evol(evol_dict)
-
-                if save_pvalues:
-                    self.pvalues[col] = evol_dict
-            else:
-                evol_dict = self.pvalues[col]
-
-            idxs[col] = self._find_rhis_compliant_idxs(
-                np.asarray(evol_dict['RHIS-min'], dtype=float), alpha
-            )
-
-        self.repr_idxs = idxs
-
-        return idxs
+        return self.repr_idxs
 
 
     def _find_rhis_compliant_idxs(self, pvalue_ts: NDArray[np.float64], alpha: float) -> tuple[int, int]:
@@ -96,13 +98,13 @@ class Rhis:
         the latest observation.
 
         The p-value series passed in is produced by the evolution
-        process triggered by Rhis.build_rhis_evol_dict_from_ts(); see the
+        process triggered by Rhis.build_rhis_evol_dict(); see the
         'pvalue_ts' description below for how to read it.
 
         Parameters
         ----------
             pvalue_ts
-                The evolution of p-values computed by Rhis.build_rhis_evol_dict_from_ts()
+                The evolution of p-values computed by Rhis.build_rhis_evol_dict()
                 for a single time series (or for a derived statistic, like
                 'min', computed over its R, H, I and S p-values). The
                 value at index i is the p-value of the slice that starts
@@ -156,7 +158,7 @@ class Rhis:
 
 
     @staticmethod
-    def build_rhis_evol_dict_from_ts(ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
+    def _evol_dict_from_ts(ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
         slices = slices_to_evol(ts.to_numpy(), length_init_ts)
         evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
 
@@ -195,7 +197,7 @@ class Rhis:
         result = {
             'R': wallis_moore(ts, alpha=alpha).p_value,
             'H': mann_whitney(ts, alpha=alpha).p_value,
-            'I': wald_wolfowitz(ts, alpha=alpha, on_ranks=False).p_value,
+            'I': wald_wolfowitz(ts, alpha=alpha, on_ranks=True).p_value,
             'S': mann_kendall(ts, alpha=alpha).p_value,
         }
 

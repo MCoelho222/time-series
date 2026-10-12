@@ -5,8 +5,10 @@ import pandas as pd
 import pytest
 
 from rhis.core import Rhis
+from rhis.hypothesis import wald_wolfowitz
 
 DEFAULT_ALPHA = 0.05
+STRICTER_ALPHA = 0.01
 SHORT_SERIES_LEN = 5
 LONG_SERIES_LEN = 101
 INITIAL_LEN_FOR_LONG_SERIES = 10
@@ -80,6 +82,7 @@ def test_constructor_sets_default_attributes() -> None:
     pd.testing.assert_frame_equal(rhis.orig_df, df)
     assert rhis.alpha == DEFAULT_ALPHA
     assert rhis.repr_idxs is None
+    assert rhis.pvalues_alpha == {}
     assert set(rhis.pvalues) == set(df.columns)
     for col in df.columns:
         assert set(rhis.pvalues[col]) == {'R', 'H', 'I', 'S', 'RHIS-min'}
@@ -150,29 +153,55 @@ def test_calculate_rhis_returns_nan_for_too_short_series() -> None:
     assert all(np.isnan(p_value) for p_value in result.values())
 
 
+def test_calculate_rhis_independence_is_tested_on_ranks() -> None:
+    ts = [3.0, 1.0, 4.0, 1.5, 5.0, 9.0, 2.6, 5.3, 8.2, 1.9, 6.0]
+    result = Rhis.calculate_rhis(ts, alpha=DEFAULT_ALPHA)
+
+    on_ranks = wald_wolfowitz(ts, alpha=DEFAULT_ALPHA, on_ranks=True).p_value
+    on_values = wald_wolfowitz(ts, alpha=DEFAULT_ALPHA, on_ranks=False).p_value
+
+    assert result['I'] == pytest.approx(on_ranks)
+    assert result['I'] != pytest.approx(on_values)
+
+
 @pytest.mark.parametrize(
     'make_df',
     [_make_df, _make_messy_monthly_df],
     ids=['clean_series', 'messy_monthly'],
 )
-def test_build_rhis_evol_dict_from_ts_shape_and_nan_tail(make_df) -> None:
+def test_build_rhis_evol_dict_shape_and_nan_tail(make_df) -> None:
     df = make_df()
     rhis = Rhis(df)
     col = df.columns[0]
 
-    evol = Rhis.build_rhis_evol_dict_from_ts(
-        rhis.numeric_orig_df[col], rhis.alpha, rhis.length_init_ts
-    )
+    evolutions = rhis.build_rhis_evol_dict(col)
+    evol = evolutions[col]
 
-    assert set(evol) == {'R', 'H', 'I', 'S'}
-    for hyp in 'RHIS':
+    assert set(evolutions) == {col}
+    assert set(evol) == {'R', 'H', 'I', 'S', 'RHIS-min'}
+    for hyp in ('R', 'H', 'I', 'S', 'RHIS-min'):
         ps = np.asarray(evol[hyp], dtype=float)
         assert len(ps) == len(rhis.numeric_orig_df)
         assert np.isfinite(ps[0])
         assert np.isnan(ps[-(rhis.length_init_ts - 1):]).all()
+    assert rhis.pvalues[col] == evol
+    assert rhis.pvalues_alpha[col] == rhis.alpha
 
 
-def test_build_rhis_evol_dict_from_ts_constant_series_yields_nan() -> None:
+def test_build_rhis_evol_dict_all_columns_returns_nested_dict() -> None:
+    df = _make_df()
+    rhis = Rhis(df)
+
+    evolutions = rhis.build_rhis_evol_dict()
+
+    assert set(evolutions) == set(rhis.numeric_orig_df.columns)
+    for col, evol in evolutions.items():
+        assert set(evol) == {'R', 'H', 'I', 'S', 'RHIS-min'}
+        assert rhis.pvalues[col] == evol
+        assert rhis.pvalues_alpha[col] == rhis.alpha
+
+
+def test_build_rhis_evol_dict_constant_series_yields_nan() -> None:
     rng = np.random.default_rng(7)
     df = pd.DataFrame({
         'constant': [5.0] * 60,
@@ -180,16 +209,40 @@ def test_build_rhis_evol_dict_from_ts_constant_series_yields_nan() -> None:
     })
     rhis = Rhis(df)
 
-    constant_evol = Rhis.build_rhis_evol_dict_from_ts(
-        rhis.numeric_orig_df['constant'], rhis.alpha, rhis.length_init_ts
-    )
-    trend_evol = Rhis.build_rhis_evol_dict_from_ts(
-        rhis.numeric_orig_df['trend'], rhis.alpha, rhis.length_init_ts
-    )
+    constant_evol = rhis.build_rhis_evol_dict('constant')['constant']
+    trend_evol = rhis.build_rhis_evol_dict('trend')['trend']
 
     assert np.isnan(constant_evol['I']).all()
     assert np.isfinite(trend_evol['I'][:-(rhis.length_init_ts - 1)]).all()
     assert np.isnan(trend_evol['I'][-(rhis.length_init_ts - 1):]).all()
+
+
+def test_build_rhis_evol_dict_recomputes_when_alpha_differs() -> None:
+    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
+    col = 'series_0'
+
+    default_evol = rhis.build_rhis_evol_dict(col)[col]
+    assert rhis.pvalues_alpha[col] == rhis.alpha
+
+    stricter_evol = rhis.build_rhis_evol_dict(col, alpha=STRICTER_ALPHA)[col]
+    assert rhis.pvalues_alpha[col] == STRICTER_ALPHA
+    assert rhis.pvalues[col] == stricter_evol
+    assert stricter_evol is not default_evol
+
+    cached_evol = rhis.build_rhis_evol_dict(col, alpha=STRICTER_ALPHA)[col]
+    assert cached_evol is stricter_evol
+
+
+def test_build_rhis_evol_dict_builds_when_pvalues_empty_even_if_alpha_cached() -> None:
+    rhis = Rhis(_make_df(n_rows=60, n_cols=1))
+    col = 'series_0'
+
+    rhis.pvalues_alpha[col] = rhis.alpha
+
+    evol = rhis.build_rhis_evol_dict(col)[col]
+
+    assert len(evol['RHIS-min']) == len(rhis.numeric_orig_df)
+    assert rhis.pvalues[col] == evol
 
 
 def test_add_rhis_min_to_evol_is_min_over_hypotheses() -> None:
@@ -219,16 +272,17 @@ def test_get_repr_idxs_returns_dict_of_index_tuples(make_df) -> None:
     assert rhis.repr_idxs == result
 
 
-def test_get_repr_idxs_single_column_saves_pvalues() -> None:
+def test_get_repr_idxs_single_column_populates_pvalues() -> None:
     rhis = Rhis(_make_df(n_rows=60, n_cols=2))
 
-    result = rhis.get_repr_idxs('series_0', save_pvalues=True)
+    result = rhis.get_repr_idxs('series_0')
 
     assert set(result) == {'series_0'}
     assert rhis.repr_idxs == result
     evol = rhis.pvalues['series_0']
     assert set(evol) == {'R', 'H', 'I', 'S', 'RHIS-min'}
     assert len(evol['RHIS-min']) == len(rhis.numeric_orig_df)
+    assert rhis.pvalues_alpha['series_0'] == rhis.alpha
 
     assert rhis.get_repr_idxs('series_0') == result
 
@@ -239,10 +293,7 @@ def test_get_repr_idxs_matches_manual_evolution() -> None:
 
     result = rhis.get_repr_idxs(col)
 
-    evol = Rhis.build_rhis_evol_dict_from_ts(
-        rhis.numeric_orig_df[col], rhis.alpha, rhis.length_init_ts
-    )
-    rhis._add_rhis_min_to_evol(evol)
+    evol = rhis.build_rhis_evol_dict(col)[col]
     expected = rhis._find_rhis_compliant_idxs(np.asarray(evol['RHIS-min'], dtype=float), rhis.alpha)
     assert result == {col: expected}
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame
@@ -117,12 +116,11 @@ def main() -> None:  # noqa: PLR0915
     # 3. The step-by-step p-values, as a dict
     # ------------------------------------------------------------------
     col = df.columns[0]
-    evol = Rhis.build_rhis_evol_dict_from_ts(
-        rhis.numeric_orig_df[col], alpha, rhis.length_init_ts
-    )
-    evol_table = pd.DataFrame(
-        {**evol, 'RHIS-min': np.min(list(evol.values()), axis=0)}, index=df.index
-    )
+    evol = rhis.build_rhis_evol_dict(col)[col]
+    evol_table = pd.DataFrame(evol, index=df.index)
+    idxs = rhis.get_repr_idxs(col)
+    start, end = idxs[col]
+    break_year = df.index[start]
 
     _section_header('3. THE STEP-BY-STEP P-VALUES   (evolution dict)')
     _say('The package hands the whole evolution back as a plain dict: one list of')
@@ -147,15 +145,12 @@ def main() -> None:  # noqa: PLR0915
     print()
     _say('In 1871 almost every check fails (H, I and S are essentially zero): the')
     _say('pre/post-changepoint mixture is not one world. The failures calm down')
-    _say('as we move the starting year forward - until 1896, when all four checks')
+    _say(f'as we move the starting year forward - until {break_year}, when all four checks')
     _say('start passing. That break is exactly what RHIS is looking for.')
 
     # ------------------------------------------------------------------
     # 4. The representative series, as indexes
     # ------------------------------------------------------------------
-    idxs = rhis.get_repr_idxs(col)
-    start, end = idxs[col]
-
     _section_header('4. THE REPRESENTATIVE SERIES   (repr indexes dict)')
     _say('get_repr_idxs() returns the answer as a dict of (start, end) indexes -')
     _say('positional, and ready to feed straight into .iloc:')
