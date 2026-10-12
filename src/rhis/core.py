@@ -54,24 +54,20 @@ class Rhis:
         self.repr_idxs: dict[str, tuple[int, int]] | None = None
 
         self.pvalues: dict[str, dict[str, list[float]]] = {}
-        self.pvalues_alpha: dict[str, float] = {}
         for col in self.numeric_orig_df.columns:
             self.pvalues[col] = {'R': [], 'H': [], 'I': [], 'S': [], 'RHIS-min': []}
 
-    # TODO: alpha should be removed from all methods but _find_rhis_compliant_idxs
+
     def build_rhis_evol_dict(
         self,
         ts_name: str | None = None,
-        alpha: float | None = None,
     ) -> dict[str, dict[str, list[float]]]:
-        alpha = self.alpha if alpha is None else alpha
         cols = list(self.numeric_orig_df.columns) if ts_name is None else [ts_name]
 
         for col in cols:
-            if len(self.pvalues[col]['RHIS-min']) == 0 or self.pvalues_alpha.get(col) != alpha:
-                evol_dict = self._evol_dict_from_ts(self.numeric_orig_df[col], alpha, self.length_init_ts)
+            if len(self.pvalues[col]['RHIS-min']) == 0:
+                evol_dict = self._evol_dict_from_ts(self.numeric_orig_df[col], self.length_init_ts)
                 self.pvalues[col] = self._add_rhis_min_to_evol(evol_dict)
-                self.pvalues_alpha[col] = alpha
 
         return {col: self.pvalues[col] for col in cols}
 
@@ -82,7 +78,7 @@ class Rhis:
         alpha: float | None = None,
     ) -> dict[str, tuple[int, int]]:
         alpha = self.alpha if alpha is None else alpha
-        evols = self.build_rhis_evol_dict(ts_name, alpha)
+        evols = self.build_rhis_evol_dict(ts_name)
 
         self.repr_idxs = {
             col: self._find_rhis_compliant_idxs(np.asarray(evol['RHIS-min'], dtype=float), alpha)
@@ -159,12 +155,12 @@ class Rhis:
 
 
     @staticmethod
-    def _evol_dict_from_ts(ts: Series, alpha: float, length_init_ts: int) -> dict[str, list[float]]:
+    def _evol_dict_from_ts(ts: Series, length_init_ts: int) -> dict[str, list[float]]:
         slices = slices_to_evol(ts.to_numpy(), length_init_ts)
         evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
 
         for sli in slices:
-            rhis_dict = Rhis.calculate_rhis(sli, alpha)
+            rhis_dict = Rhis.calculate_rhis(sli)
             evol['R'].append(rhis_dict['R'])
             evol['H'].append(rhis_dict['H'])
             evol['I'].append(rhis_dict['I'])
@@ -186,21 +182,16 @@ class Rhis:
 
 
     @staticmethod
-    def calculate_rhis(
-        ts: TimeSeriesFlex,
-        alpha: float = DEFAULT_ALPHA,
-    ) -> dict[str, float]:
+    def calculate_rhis(ts: TimeSeriesFlex) -> dict[str, float]:
         ts = clean_numeric_array(ts)
-        # The series must have at least MIN_TS_LENGTH_FOR_RHIS numeric values to be tested
         if len(ts) < MIN_TS_LENGTH_FOR_RHIS:
-            # TODO: log this
             return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
 
         result = {
-            'R': wallis_moore(ts, alpha=alpha).p_value,
-            'H': mann_whitney(ts, alpha=alpha).p_value,
-            'I': wald_wolfowitz(ts, alpha=alpha, on_ranks=True).p_value,
-            'S': mann_kendall(ts, alpha=alpha).p_value,
+            'R': wallis_moore(ts).p_value,
+            'H': mann_whitney(ts).p_value,
+            'I': wald_wolfowitz(ts, on_ranks=True).p_value,
+            'S': mann_kendall(ts).p_value,
         }
 
         return result

@@ -16,7 +16,7 @@ small-sample critical tables are applied.
 ## Function
 
 ```python
-mann_whitney(x, y=None, alpha=0.05, alternative='two-sided',
+mann_whitney(x, y=None, alternative='two-sided',
              *, continuity=True, ties=True)
 ```
 
@@ -36,12 +36,6 @@ mann_whitney(x, y=None, alpha=0.05, alternative='two-sided',
 - **Description:** Ordered numerical observations of the second group.
   When omitted, `x` is compared against its own second half (used by the
   RHIS homogeneity component).
-
-### `alpha`
-
-- **Type:** `float`
-- **Default:** `0.05`
-- **Description:** Significance level used for the hypothesis test.
 
 ### `alternative`
 
@@ -75,7 +69,6 @@ A test result containing:
   $U = \min(U_1, U_2)$.
 - **`p_value`** (`float`): The p-value computed from the normal
   approximation, directional according to `alternative`.
-- **`reject`** (`bool`): `True` when the null hypothesis is rejected.
 - **`alternative`** (`str`): The alternative hypothesis used for the
   test (`'two-sided'`, `'greater'`, or `'less'`).
 
@@ -177,7 +170,10 @@ with `alternative='greater'` and $x$ tending larger, $Z$ is positive and
 $p$ is small; if the data point the opposite way, $Z$ is negative and $p$
 approaches $1$.
 
-The null hypothesis is rejected when $p < \alpha$.
+The p-value is the only output of the test: whether the groups are
+deemed to differ is decided by the caller, typically by comparing the
+p-value with a chosen significance level $\alpha$ (rejecting when
+$p < \alpha$).
 
 ## Adaptations
 
@@ -193,7 +189,7 @@ The null hypothesis is rejected when $p < \alpha$.
   accordingly.
 - **Constant input:** when the two groups contain a single identical
   value only, the statistic is undefined; the test returns
-  `statistic=0` and `p_value=1.0` (no rejection) instead of raising.
+  `statistic=nan` and `p_value=nan` instead of raising.
 - **scipy compatibility:** the returned p-values match
   `scipy.stats.mannwhitneyu(x, y, method='asymptotic')` for all
   alternatives and both continuity settings, including tied data. Note

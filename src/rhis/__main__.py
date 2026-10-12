@@ -177,7 +177,7 @@ def main() -> None:  # noqa: PLR0915
     # ------------------------------------------------------------------
     _section_header('5. THE VERDICT')
     repr_ts = rhis.numeric_orig_df[col].iloc[start:end].to_numpy()
-    repr_rhis = Rhis.calculate_rhis(repr_ts, alpha)
+    repr_rhis = Rhis.calculate_rhis(repr_ts)
 
     _say('Final p-values for the representative series:')
     print()

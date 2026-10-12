@@ -8,7 +8,6 @@ from rhis.core import Rhis
 from rhis.hypothesis import wald_wolfowitz
 
 DEFAULT_ALPHA = 0.05
-STRICTER_ALPHA = 0.01
 SHORT_SERIES_LEN = 5
 LONG_SERIES_LEN = 101
 INITIAL_LEN_FOR_LONG_SERIES = 10
@@ -82,7 +81,6 @@ def test_constructor_sets_default_attributes() -> None:
     pd.testing.assert_frame_equal(rhis.orig_df, df)
     assert rhis.alpha == DEFAULT_ALPHA
     assert rhis.repr_idxs is None
-    assert rhis.pvalues_alpha == {}
     assert set(rhis.pvalues) == set(df.columns)
     for col in df.columns:
         assert set(rhis.pvalues[col]) == {'R', 'H', 'I', 'S', 'RHIS-min'}
@@ -132,7 +130,7 @@ def test_constructor_does_not_raise_for_sparse_numeric_column() -> None:
 
 def test_calculate_rhis_returns_four_p_values() -> None:
     ts = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-    result = Rhis.calculate_rhis(ts, alpha=DEFAULT_ALPHA)
+    result = Rhis.calculate_rhis(ts)
 
     assert set(result) == {'R', 'H', 'I', 'S'}
     assert all(isinstance(p_value, float) for p_value in result.values())
@@ -140,14 +138,14 @@ def test_calculate_rhis_returns_four_p_values() -> None:
 
 def test_calculate_rhis_ignores_non_numeric_and_missing() -> None:
     df = _make_messy_monthly_df()
-    result = Rhis.calculate_rhis(df['flow'].to_list(), alpha=DEFAULT_ALPHA)
+    result = Rhis.calculate_rhis(df['flow'].to_list())
 
     assert set(result) == {'R', 'H', 'I', 'S'}
     assert all(np.isfinite(p_value) for p_value in result.values())
 
 
 def test_calculate_rhis_returns_nan_for_too_short_series() -> None:
-    result = Rhis.calculate_rhis([1.0, 2.0], alpha=DEFAULT_ALPHA)
+    result = Rhis.calculate_rhis([1.0, 2.0])
 
     assert set(result) == {'R', 'H', 'I', 'S'}
     assert all(np.isnan(p_value) for p_value in result.values())
@@ -155,10 +153,10 @@ def test_calculate_rhis_returns_nan_for_too_short_series() -> None:
 
 def test_calculate_rhis_independence_is_tested_on_ranks() -> None:
     ts = [3.0, 1.0, 4.0, 1.5, 5.0, 9.0, 2.6, 5.3, 8.2, 1.9, 6.0]
-    result = Rhis.calculate_rhis(ts, alpha=DEFAULT_ALPHA)
+    result = Rhis.calculate_rhis(ts)
 
-    on_ranks = wald_wolfowitz(ts, alpha=DEFAULT_ALPHA, on_ranks=True).p_value
-    on_values = wald_wolfowitz(ts, alpha=DEFAULT_ALPHA, on_ranks=False).p_value
+    on_ranks = wald_wolfowitz(ts, on_ranks=True).p_value
+    on_values = wald_wolfowitz(ts, on_ranks=False).p_value
 
     assert result['I'] == pytest.approx(on_ranks)
     assert result['I'] != pytest.approx(on_values)
@@ -186,7 +184,6 @@ def test_build_rhis_evol_dict_shape_and_nan_tail(make_df) -> None:
         assert np.isfinite(ps[0])
         assert np.isnan(ps[-(rhis.length_init_ts - 1):]).all()
     assert rhis.pvalues[col] == evol
-    assert rhis.pvalues_alpha[col] == rhis.alpha
 
 
 def test_build_rhis_evol_dict_all_columns_returns_nested_dict() -> None:
@@ -199,7 +196,6 @@ def test_build_rhis_evol_dict_all_columns_returns_nested_dict() -> None:
     for col, evol in evolutions.items():
         assert set(evol) == {'R', 'H', 'I', 'S', 'RHIS-min'}
         assert rhis.pvalues[col] == evol
-        assert rhis.pvalues_alpha[col] == rhis.alpha
 
 
 def test_build_rhis_evol_dict_constant_series_yields_nan() -> None:
@@ -218,27 +214,28 @@ def test_build_rhis_evol_dict_constant_series_yields_nan() -> None:
     assert np.isnan(trend_evol['I'][-(rhis.length_init_ts - 1):]).all()
 
 
-def test_build_rhis_evol_dict_recomputes_when_alpha_differs() -> None:
+def test_build_rhis_evol_dict_is_memoized() -> None:
     rhis = Rhis(_make_df(n_rows=60, n_cols=1))
     col = 'series_0'
 
-    default_evol = rhis.build_rhis_evol_dict(col)[col]
-    assert rhis.pvalues_alpha[col] == rhis.alpha
+    first = rhis.build_rhis_evol_dict(col)[col]
+    second = rhis.build_rhis_evol_dict(col)[col]
 
-    stricter_evol = rhis.build_rhis_evol_dict(col, alpha=STRICTER_ALPHA)[col]
-    assert rhis.pvalues_alpha[col] == STRICTER_ALPHA
-    assert rhis.pvalues[col] == stricter_evol
-    assert stricter_evol is not default_evol
-
-    cached_evol = rhis.build_rhis_evol_dict(col, alpha=STRICTER_ALPHA)[col]
-    assert cached_evol is stricter_evol
+    assert second is first
+    assert len(rhis.pvalues[col]['RHIS-min']) == len(rhis.numeric_orig_df)
 
 
-def test_build_rhis_evol_dict_builds_when_pvalues_empty_even_if_alpha_cached() -> None:
+def test_build_rhis_evol_dict_rebuilds_when_pvalues_empty() -> None:
+    """
+    An empty 'RHIS-min' means the evolution was never completed, so the
+    build runs again even if some hypothesis lists were pre-populated.
+    """
     rhis = Rhis(_make_df(n_rows=60, n_cols=1))
     col = 'series_0'
+    rhis.build_rhis_evol_dict(col)
 
-    rhis.pvalues_alpha[col] = rhis.alpha
+    rhis.pvalues[col]['R'] = [0.5]
+    rhis.pvalues[col]['RHIS-min'] = []
 
     evol = rhis.build_rhis_evol_dict(col)[col]
 
@@ -283,7 +280,6 @@ def test_get_repr_idxs_single_column_populates_pvalues() -> None:
     evol = rhis.pvalues['series_0']
     assert set(evol) == {'R', 'H', 'I', 'S', 'RHIS-min'}
     assert len(evol['RHIS-min']) == len(rhis.numeric_orig_df)
-    assert rhis.pvalues_alpha['series_0'] == rhis.alpha
 
     assert rhis.get_repr_idxs('series_0') == result
 

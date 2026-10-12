@@ -12,7 +12,7 @@ distributional assumptions about the data, only about the ordering.
 ## Function
 
 ```python
-mann_kendall(ts, alpha=0.05, alternative='two-sided')
+mann_kendall(ts, alternative='two-sided')
 ```
 
 ## Parameters
@@ -25,12 +25,6 @@ mann_kendall(ts, alpha=0.05, alternative='two-sided')
 - **Notes:** Non-finite values are not handled explicitly and should be
   removed beforehand. The normal approximation used for the p-value is
   recommended for series with 10 or more observations.
-
-### `alpha`
-
-- **Type:** `float`
-- **Default:** `0.05`
-- **Description:** Significance level used for the hypothesis test.
 
 ### `alternative`
 
@@ -48,7 +42,6 @@ A test result containing:
 - **`statistic`** (`float`): The Mann-Kendall statistic $S$.
 - **`p_value`** (`float`): The p-value computed from the normal
   approximation, directional according to `alternative`.
-- **`reject`** (`bool`): `True` when the null hypothesis is rejected.
 - **`alternative`** (`str`): The alternative hypothesis used for the
   test (`'two-sided'`, `'greater'`, or `'less'`).
 
@@ -95,9 +88,12 @@ $$
 Under $H_0$, $Z$ approximately follows a standard normal distribution.
 The p-value is directional: for the two-sided test
 $p = 2(1 - \Phi(|Z|))$, and for the one-sided alternatives it is the
-tail on the side of the observed trend (large, above 0.5, when the
-series moves in the direction opposite to the alternative). The null
-hypothesis is rejected when $p < \alpha$.
+Tail on the side of the observed trend (large, above 0.5, when the
+series moves in the direction opposite to the alternative). The p-value
+is the only output of the test: whether the series is deemed to have a
+monotonic trend is decided by the caller, typically by comparing the
+p-value with a chosen significance level $\alpha$ (rejecting when
+$p < \alpha$).
 
 ## Adaptations
 
@@ -118,8 +114,7 @@ hypothesis is rejected when $p < \alpha$.
   p-value is never paired with a non-rejection when the direction
   contradicts the alternative.
 - **Degenerate inputs:** a constant series has $S = 0$ with zero
-  variance; the test returns `statistic=0`, `p_value=1.0`
-  (two-sided), and `reject=False`.
+  variance; the test returns `statistic=nan` and `p_value=nan`.
 
 ## Interpretation
 
@@ -150,8 +145,8 @@ The worked example from Gilbert (1987), page 212:
 
 The test yields $S = 111$, standard deviation $35.02$, and
 $Z = 3.14$ (the book reports 3.1), giving a two-sided p-value of
-approximately `p = 0.0017`; the hypothesis of no trend is rejected at
-the 5% level.
+approximately `p = 0.0017`; the value is well below the usual 5%
+significance level, indicating a trend.
 
 ## References
 

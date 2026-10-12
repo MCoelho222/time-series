@@ -6,6 +6,8 @@ import pytest
 from rhis.hypothesis import runs_test, wallis_moore
 
 P_HALF = 0.5
+TINY_P = 1e-3
+TINY_P_WALLIS = 5e-3
 
 MILK = [1.90, 1.99, 2., 1.78, 1.77, 1.76, 1.98, 1.9, 1.65, \
         1.76, 2.01, 1.78, 1.99, 1.76, 1.94, 1.78, 1.67, 1.87, 1.91, 1.91, 1.89]
@@ -33,7 +35,6 @@ def test_randomness():
 
     expected_stat = [11, 12]
     expected_p = [0.82, 0.36]
-    expected_reject = [False, False]
 
     runs = runs_test(ts, alternative='two-sided')
     wallis = wallis_moore(ts, alternative='two-sided')
@@ -48,7 +49,6 @@ def test_randomness():
 
         assert stat_err <= accepted_stat_err
         assert p_err <= accepted_p_err
-        assert expected_reject[i] == tests[i].reject
 
 
 def test_runs_test_statistic_is_number_of_runs() -> None:
@@ -68,28 +68,26 @@ def test_runs_test_statistic_is_number_of_runs() -> None:
 def test_runs_test_too_few_runs() -> None:
     """
     A monotone series has the fewest possible runs, so the 'less'
-    alternative rejects while 'greater' approaches p = 1.
+    one-sided p-value is tiny while 'greater' approaches p = 1.
     """
     less = runs_test(MONOTONE, alternative='less')
     greater = runs_test(MONOTONE, alternative='greater')
 
-    assert less.reject
-    assert not greater.reject
+    assert less.p_value < TINY_P
     assert greater.p_value > P_HALF
 
 
 def test_runs_test_too_many_runs() -> None:
     """
     An alternating series has the most possible runs, so the 'greater'
-    alternative rejects; the one-sided p equals half the two-sided p.
+    one-sided p-value is tiny; the one-sided p equals half the two-sided p.
     """
     two_sided = runs_test(ALTERNATING, alternative='two-sided')
     greater = runs_test(ALTERNATING, alternative='greater')
     less = runs_test(ALTERNATING, alternative='less')
 
-    assert greater.reject
-    assert two_sided.reject
-    assert not less.reject
+    assert greater.p_value < TINY_P
+    assert two_sided.p_value < TINY_P
     assert less.p_value > P_HALF
     assert greater.p_value == pytest.approx(two_sided.p_value / 2, abs=1e-6)
 
@@ -115,31 +113,29 @@ def test_wallis_moore_statistic_is_phase_count() -> None:
 
 def test_wallis_moore_one_sided_direction() -> None:
     """
-    A monotone series has a single phase, so 'less' rejects; an
-    alternating series has the most phases, so 'greater' rejects while
-    the opposite alternatives approach p = 1.
+    A monotone series has a single phase, so 'less' has a tiny p-value;
+    an alternating series has the most phases, so 'greater' has a tiny
+    p-value while the opposite alternatives approach p = 1.
     """
     fewer = wallis_moore(MONOTONE, alternative='less')
     more = wallis_moore(ALTERNATING, alternative='greater')
 
-    assert fewer.reject
-    assert more.reject
+    assert fewer.p_value < TINY_P_WALLIS
+    assert more.p_value < TINY_P_WALLIS
     assert wallis_moore(MONOTONE, alternative='greater').p_value > P_HALF
     assert wallis_moore(ALTERNATING, alternative='less').p_value > P_HALF
 
 
 def test_runs_test_and_wallis_moore_constant_input() -> None:
     """
-    For a constant series both tests classify the event as non-random
-    and return a zero p-value with rejection (the runs test has no
-    signs at all; the Wallis-Moore test has a single degenerate phase).
+    For a constant series both tests return a NaN statistic and p-value
+    (the runs test has no signs at all; the Wallis-Moore test has a
+    single degenerate phase).
     """
     constant_runs = runs_test([5.0] * 8)
     constant_wallis = wallis_moore([5.0] * 8)
 
     assert np.isnan(constant_runs.statistic)
     assert np.isnan(constant_runs.p_value)
-    assert constant_runs.reject is None
     assert np.isnan(constant_wallis.statistic)
     assert np.isnan(constant_wallis.p_value)
-    assert constant_wallis.reject is None

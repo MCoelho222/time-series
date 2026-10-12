@@ -13,7 +13,7 @@ count is compared against it using a normal approximation.
 ## Function
 
 ```python
-wallis_moore(ts, alpha=0.05, alternative='two-sided')
+wallis_moore(ts, alternative='two-sided')
 ```
 
 ## Parameters
@@ -26,12 +26,6 @@ wallis_moore(ts, alpha=0.05, alternative='two-sided')
 - **Notes:** Non-finite values are not handled explicitly and should be
   removed beforehand. A constant series is treated as a degenerate
   input (see Adaptations).
-
-### `alpha`
-
-- **Type:** `float`
-- **Default:** `0.05`
-- **Description:** Significance level used for the hypothesis test.
 
 ### `alternative`
 
@@ -49,7 +43,6 @@ A test result containing:
 - **`statistic`** (`float`): The number of phase runs $V$ (see below).
 - **`p_value`** (`float`): The p-value computed from the normal
   approximation, directional according to `alternative`.
-- **`reject`** (`bool`): `True` when the null hypothesis is rejected.
 - **`alternative`** (`str`): The alternative hypothesis used for the
   test (`'two-sided'`, `'greater'`, or `'less'`).
 
@@ -99,7 +92,10 @@ The p-value is directional: for the two-sided test
 $p = 2(1 - \Phi(|Z|))$, and for the one-sided alternatives it is the
 tail on the side of the observed number of phases (large, above 0.5,
 when the series has a phase count on the opposite side of the
-expectation). The null hypothesis is rejected when $p < \alpha$.
+expectation). The p-value is the only output of the test: whether the
+ordering is deemed non-random is decided by the caller, typically by
+comparing the p-value with a chosen significance level $\alpha$
+(rejecting when $p < \alpha$).
 
 ## Adaptations
 
@@ -143,7 +139,7 @@ example from Sheskin (2004, Example 10.2), 21 consecutive containers:
 ```
 
 The two-sided test yields $V = 12$ phase runs and approximately
-`p = 0.37`; the randomness hypothesis is not rejected.
+`p = 0.37`; the data are consistent with a random ordering.
 
 ## References
 

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 P_HALF = 0.5
 P_VALUE_TOL = 1e-6
 STAT_TOL = 0.02
+TINY_P = 1e-6
 
 GILBERT = [20, 20, 20, 20, 15, 20, 20, 30, 27, 26, 23, 35, 25, 28, 70, 26, 24, 34, 32, 23, 50, 30]
 MAIN_EXAMPLE = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
@@ -54,7 +55,6 @@ def test_mann_kendall_gilbert_example() -> None:
 
     error = abs(z - expected_z) / expected_z
     assert error <= accepted_error
-    assert result.reject
 
 
 def test_mann_kendall_two_sided_gilbert_example() -> None:
@@ -115,20 +115,18 @@ def test_mann_kendall_variance_accounts_for_ties() -> None:
 
 def test_mann_kendall_one_sided_direction() -> None:
     """
-    A monotone upward series rejects only for the 'greater'
+    A monotone upward series has a tiny p-value only for the 'greater'
     alternative, and a monotone downward series only for 'less'.
     """
     up = mann_kendall(MONOTONE_UP)
     down = mann_kendall(MONOTONE_DOWN)
 
     assert up.statistic == pytest.approx(_independent_statistic(MONOTONE_UP))
-    assert mann_kendall(MONOTONE_UP, alternative='greater').reject
-    assert not mann_kendall(MONOTONE_UP, alternative='less').reject
+    assert mann_kendall(MONOTONE_UP, alternative='greater').p_value < TINY_P
     assert mann_kendall(MONOTONE_UP, alternative='less').p_value > P_HALF
 
     assert down.statistic == pytest.approx(_independent_statistic(MONOTONE_DOWN))
-    assert mann_kendall(MONOTONE_DOWN, alternative='less').reject
-    assert not mann_kendall(MONOTONE_DOWN, alternative='greater').reject
+    assert mann_kendall(MONOTONE_DOWN, alternative='less').p_value < TINY_P
     assert mann_kendall(MONOTONE_DOWN, alternative='greater').p_value > P_HALF
 
 
@@ -143,25 +141,20 @@ def test_mann_kendall_statistic_equal_zero() -> None:
     assert result.statistic == pytest.approx(_independent_statistic(BALANCED))
     assert result.statistic == pytest.approx(0.0)
     assert result.p_value == pytest.approx(1.0, abs=P_VALUE_TOL)
-    assert not result.reject
 
     less = mann_kendall(BALANCED, alternative='less')
     greater = mann_kendall(BALANCED, alternative='greater')
     assert less.p_value == pytest.approx(P_HALF, abs=P_VALUE_TOL)
     assert greater.p_value == pytest.approx(P_HALF, abs=P_VALUE_TOL)
-    assert not less.reject
-    assert not greater.reject
 
 
 def test_mann_kendall_constant_input() -> None:
     """
     A constant series has no trend at all (S = 0 with zero variance):
-    the statistic is 0, the two-sided p-value is 1, and the null is not
-    rejected.
+    NaN statistic and p-value are returned.
     """
     constant = mann_kendall([5.0] * 8)
 
     assert np.isnan(constant.statistic)
     assert np.isnan(constant.p_value)
-    assert constant.reject is None
     assert constant.alternative == 'two-sided'

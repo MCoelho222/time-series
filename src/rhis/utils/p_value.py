@@ -26,11 +26,9 @@ def test_decision_normal(
         stat_mean: float,
         z: float,
         alternative: str,
-        alpha: float
         ) -> TestDecisionNormal:
     """
-    Decide about rejection of the null hypothesis using normal
-    approximation.
+    Compute p-value using normal approximation with direction-aware handling.
 
     Parameters
     ----------
@@ -40,8 +38,6 @@ def test_decision_normal(
             The expected value of the test statistic.
         z
             The value of the normalized test statistic (magnitude).
-        alpha
-            The significance level of the test.
         alternative
             The alternative hypothesis: 'two-sided', 'greater',
             or 'less'. For the one-sided alternatives the p-value is
@@ -52,26 +48,20 @@ def test_decision_normal(
     Return
     ------
         A namedtuple
-            ('TestDecisionNormal', ['p_value', 'alpha', 'reject'
-            , 'alternative'])
-            The parameter 'reject' is of type bool. 'True' means the
-            null hypothesis was rejected.
+            ('TestDecisionNormal', ['p_value', 'alternative'])
     """
     p = p_value_normal(z)
 
     if alternative == 'two-sided':
         p = min(1.0, p * 2.)
-        reject = p < alpha
     if alternative == 'less':
         # Direction-aware one-sided p: the tail on the side of the
         # observed statistic. When the statistic lies on the opposite
         # side of the mean, the p-value is large (above 0.5).
         p = p if stat < stat_mean else 1. - p
-        reject = p < alpha
     if alternative == 'greater':
         p = p if stat > stat_mean else 1. - p
-        reject = p < alpha
 
-    return TestDecisionNormal(p, alpha, reject, alternative)
+    return TestDecisionNormal(p, alternative)
 
 

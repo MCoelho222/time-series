@@ -16,10 +16,10 @@ MIN_SERIES_LENGTH = 3
 
 def wald_wolfowitz(
         ts: TimeSeriesFlex,
-        alpha: float = 0.05,*,
+        *,
         on_ranks: bool = False,
         ties: bool = True,
-        ) -> WaldWolfowitzResults:
+) -> WaldWolfowitzResults:
     """
     Wald & Wolfowitz test for serial correlation.
 
@@ -29,15 +29,13 @@ def wald_wolfowitz(
     (the first and last observations are neighbours), the statistic captures
     both positive and negative serial dependence. Under the null hypothesis the
     standardized statistic approximately follows a standard normal
-    distribution, and the null hypothesis is rejected when p_value < alpha.
+    distribution, from which the two-sided p-value is computed.
 
     Parameters
     ----------
         ts
             A time series to be tested. It must contain at least three finite
             numeric values and at least two distinct values.
-        alpha
-            The significance level for the test. Default is 0.05.
         on_ranks
             If True, the test will be applied on the ranks of the series,
             making it distribution-free.
@@ -47,9 +45,7 @@ def wald_wolfowitz(
     Returns
     -------
         A namedtuple
-            ('WaldWolfowitzResults', ['statistic', 'p_value', 'reject'])
-            The parameter 'reject' is of type bool. 'True' means the null
-            hypothesis was rejected.
+            ('WaldWolfowitzResults', ['statistic', 'p_value'])
 
     Raises
     ------
@@ -81,7 +77,7 @@ def wald_wolfowitz(
         raise ValueError(msg)
 
     if np.all(arr == arr[0]):
-        return WaldWolfowitzResults(np.nan, np.nan, None)
+        return WaldWolfowitzResults(np.nan, np.nan)
 
     if on_ranks and not ties:
         arr = np.array(to_ranks(arr))
@@ -112,9 +108,7 @@ def wald_wolfowitz(
     z = abs((r - e_r) / np.sqrt(var_r))
     p = 2 * (1 - sts.norm.cdf(z))
 
-    reject = p < alpha
-
-    return WaldWolfowitzResults(r, p, reject)
+    return WaldWolfowitzResults(r, p)
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]

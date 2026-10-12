@@ -11,7 +11,7 @@ A random sequence produces neither too few nor too many runs.
 ## Function
 
 ```python
-runs_test(ts, alpha=0.05, alternative='two-sided', *, continuity=True)
+runs_test(ts, alternative='two-sided', *, continuity=True)
 ```
 
 ## Parameters
@@ -24,12 +24,6 @@ runs_test(ts, alpha=0.05, alternative='two-sided', *, continuity=True)
   ignored.
 - **Notes:** A non-empty series must contain observations strictly
   above and strictly below the median for the statistic to be defined.
-
-### `alpha`
-
-- **Type:** `float`
-- **Default:** `0.05`
-- **Description:** Significance level used for the hypothesis test.
 
 ### `alternative`
 
@@ -54,7 +48,6 @@ A test result containing:
 - **`statistic`** (`float`): The number of runs $R$.
 - **`p_value`** (`float`): The p-value computed from the normal
   approximation, directional according to `alternative`.
-- **`reject`** (`bool`): `True` when the null hypothesis is rejected.
 - **`alternative`** (`str`): The alternative hypothesis used for the
   test (`'two-sided'`, `'greater'`, or `'less'`).
 
@@ -110,7 +103,10 @@ p-value is directional: for the two-sided test
 $p = 2(1 - \Phi(|Z|))$, and for the one-sided alternatives it is the
 tail on the side of the observed number of runs (large, above 0.5, when
 the series has a run count on the opposite side of the expectation).
-The null hypothesis is rejected when $p < \alpha$.
+The p-value is the only output of the test: whether the ordering is
+deemed non-random is decided by the caller, typically by comparing the
+p-value with a chosen significance level $\alpha$ (rejecting when
+$p < \alpha$).
 
 ## Adaptations
 
@@ -127,7 +123,7 @@ The null hypothesis is rejected when $p < \alpha$.
   contradicts the alternative.
 - **Degenerate inputs:** when the series has no observations strictly
   above or strictly below the median, the number of runs is undefined;
-  the test returns `statistic=0`, `p_value=0.0`, and `reject=True`.
+  the test returns `statistic=0` and `p_value=0.0`.
 
 ## Interpretation
 
