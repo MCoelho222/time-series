@@ -6,13 +6,14 @@ process (independence).
 
 The implementation follows the serial-correlation test introduced by
 Wald & Wolfowitz (1943), using the circular definition of the
-statistic. It is the test adopted by the RHIS *independence* component
-and is applied on the ranks of the series by default.
+statistic. It is the test adopted by the RHIS *independence* component,
+where it is applied on the ranks of the series (distribution-free and
+robust to outliers).
 
 ## Function
 
 ```python
-wald_wolfowitz(ts, alpha=0.05, *, on_ranks=False, ties=True)
+wald_wolfowitz(ts, *, on_ranks=False, ties=True)
 ```
 
 ## Parameters
@@ -25,12 +26,6 @@ wald_wolfowitz(ts, alpha=0.05, *, on_ranks=False, ties=True)
 - **Notes:** Non-finite values are rejected. The series must have at
   least 3 observations and cannot be constant. Degenerate inputs raise
   a `ValueError`.
-
-### `alpha`
-
-- **Type:** `float`
-- **Default:** `0.05`
-- **Description:** Significance level used for the hypothesis test.
 
 ### `on_ranks`
 
@@ -53,7 +48,6 @@ A test result containing:
 - **`statistic`** (`float`): The circular serial-correlation statistic
   $r$ (see below).
 - **`p_value`** (`float`): Two-sided p-value.
-- **`reject`** (`bool`): `True` when the null hypothesis is rejected.
 
 ## Hypotheses
 
@@ -110,9 +104,11 @@ $$
 p = 2 \left( 1 - \Phi(Z) \right)
 $$
 
-The null hypothesis is rejected when $p < \alpha$ (equivalently, when
-$|Z| > z_{1 - \alpha/2}$, with $z_{0.975} \approx 1.96$ for
-$\alpha = 0.05$).
+The p-value is the only output of the test: whether the ordering is
+deemed independent is decided by the caller, typically by comparing the
+p-value with a chosen significance level $\alpha$ (rejecting when
+$p < \alpha$, equivalently when $|Z| > z_{1 - \alpha/2}$, with
+$z_{0.975} \approx 1.96$ for $\alpha = 0.05$).
 
 ## Adaptations
 

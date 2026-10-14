@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from rhis.custom_types import RunsTestResults, WallisMooreResults
-from rhis.utils import test_decision_normal
+from rhis.utils import p_value_normal_directional
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -13,10 +13,10 @@ if TYPE_CHECKING:
 
 def runs_test(  # noqa: C901
         ts: TimeSeriesFlex,
-        alpha: float = 0.05,
-        alternative: str = 'two-sided',*,
-        continuity: bool = True
-        ) -> RunsTestResults:
+        alternative: str = 'two-sided',
+        *,
+        continuity: bool = True,
+) -> RunsTestResults:
     """
     Apply the single-sample runs test on a time series.
 
@@ -52,8 +52,6 @@ def runs_test(  # noqa: C901
                 two-sided
                 greater
                 less
-        alpha
-            The significance level for the test.
         continuity
             If True, applies the correction for continuity for the normal
             approximation.
@@ -61,10 +59,7 @@ def runs_test(  # noqa: C901
     Return
     ------
         A namedtuple
-            ('RunsTestResults', ['statistic', 'p_value', 'reject',
-            'alternative'])
-            The parameter 'reject' is of type bool. 'True' means the null
-            hypothesis was rejected.
+            ('RunsTestResults', ['statistic', 'p_value', 'alternative'])
 
     See Also
     --------
@@ -75,7 +70,7 @@ def runs_test(  # noqa: C901
     ts = np.array(ts) if isinstance(ts, list) else ts
 
     if np.all(ts == ts[0]):
-            return RunsTestResults(np.nan, np.nan, None, alternative)
+        return RunsTestResults(np.nan, np.nan, alternative)
 
     median = np.median(np.array(ts))
     up_runs_ones = []
@@ -90,8 +85,7 @@ def runs_test(  # noqa: C901
             signs.append(-1)
 
     if not signs:
-        reject = True
-        return RunsTestResults(0, 0.0, reject, alternative)
+        return RunsTestResults(0, 0.0, alternative)
 
     for i in range(1, len(signs)):
         el = signs[i]
@@ -124,18 +118,17 @@ def runs_test(  # noqa: C901
         num_z = (abs(stat - stat_mean) - 0.5) if continuity else stat - stat_mean
         z = num_z / ((var_num / var_den) ** 0.5)
     except ZeroDivisionError:
-        reject = True
-        return RunsTestResults(0, 0.0, reject, alternative)
+        return RunsTestResults(0, 0.0, alternative)
 
-    decision = test_decision_normal(stat, stat_mean, z, alternative, alpha)
-    return RunsTestResults(stat, decision.p_value, decision.reject, alternative)
+    result = p_value_normal_directional(stat, stat_mean, z, alternative)
+    return RunsTestResults(stat, result.p_value, alternative)
 
 
 def wallis_moore(
-        ts: TimeSeriesFlex,
-        alpha: float = 0.05,
-        alternative: str = 'two-sided',
-    ) -> WallisMooreResults:
+    ts: TimeSeriesFlex,
+    *,
+    alternative: str = 'two-sided',
+) -> WallisMooreResults:
     """
     Apply the Wallis and Moore (1941) phase test for randomness.
 
@@ -166,8 +159,6 @@ def wallis_moore(
     ----------
         ts
             A time series (1D list or numpy ndarray).
-        alpha
-            The significance level for the test.
         alternative
             One of the alternative hypotheses:
                 two-sided
@@ -177,10 +168,7 @@ def wallis_moore(
     Return
     ------
         A namedtuple
-            ('WallisMooreResults', ['statistic', 'p_value', 'reject',
-            'alternative'])
-            The parameter 'reject' is of type bool. 'True' means the null
-            hypothesis was rejected.
+            ('WallisMooreResults', ['statistic', 'p_value', 'alternative'])
 
     See Also
     --------
@@ -190,7 +178,7 @@ def wallis_moore(
     """
     ts_arr = np.array(ts)
     if np.all(ts_arr == ts_arr[0]):
-        return WallisMooreResults(np.nan, np.nan, None, alternative)
+        return WallisMooreResults(np.nan, np.nan, alternative)
 
     #Group 1 (pluses for zeros)
     signs1 = []
@@ -245,14 +233,11 @@ def wallis_moore(
     sigma = ((16. * n - 29.) / 90.) ** 0.5
     z = (runs - expected_runs) / sigma
 
-    decision = test_decision_normal(runs, expected_runs, z, alternative, alpha)
-    return WallisMooreResults(runs, decision.p_value, decision.reject, alternative)
+    result = p_value_normal_directional(runs, expected_runs, z, alternative)
+    return WallisMooreResults(runs, result.p_value, alternative)
 
 
 if __name__ == "__main__":
-    from rhis.plotting import plot_test
-
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
     p_value = wallis_moore(ts).p_value
-    plot_test(ts, p_value, filename='randomness', title='Randomness Test Example')
     print(f"p-value: {p_value}")

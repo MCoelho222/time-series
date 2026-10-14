@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rhis.utils import clean_numeric_array, nans_nums_from_array
+from rhis.utils import clean_numeric_array
 
 # =====================================================================
 # clean_numeric_array
@@ -54,47 +54,3 @@ def test_clean_numeric_array_returns_empty_array_when_no_finite_values(values) -
     result = clean_numeric_array(values)
     assert isinstance(result, np.ndarray)
     assert result.tolist() == []
-
-
-# =====================================================================
-# nans_nums_from_array
-# =====================================================================
-
-
-MIXED_ARRAY = np.array([0.1, np.nan, 0.3, np.nan, 0.5])
-NO_NAN_ARRAY = np.array([0.1, 0.2])
-ALL_NAN_ARRAY = np.array([np.nan, np.nan])
-
-
-def test_nans_nums_from_array_returns_only_numeric_by_default() -> None:
-    assert np.asarray(nans_nums_from_array(MIXED_ARRAY)).tolist() == [0.1, 0.3, 0.5]
-
-
-def test_nans_nums_from_array_splits_numeric_and_nan() -> None:
-    nums, nans = nans_nums_from_array(MIXED_ARRAY, only_nums=False)
-    assert nums.tolist() == [0.1, 0.3, 0.5]
-    assert nans.size == np.count_nonzero(np.isnan(MIXED_ARRAY))
-    assert np.isnan(nans).all()
-
-
-def test_nans_nums_from_array_without_nans() -> None:
-    nums, nans = nans_nums_from_array(NO_NAN_ARRAY, only_nums=False)
-    assert nums.tolist() == [0.1, 0.2]
-    assert nans.size == np.count_nonzero(np.isnan(NO_NAN_ARRAY))
-
-
-def test_nans_nums_from_array_all_nans() -> None:
-    nums, nans = nans_nums_from_array(ALL_NAN_ARRAY, only_nums=False)
-    assert nums.size == np.count_nonzero(~np.isnan(ALL_NAN_ARRAY))
-    assert nans.size == ALL_NAN_ARRAY.size
-    assert np.isnan(nans).all()
-
-
-def test_nans_nums_from_array_empty() -> None:
-    nums, nans = nans_nums_from_array(np.array([]), only_nums=False)
-    assert nums.size == 0
-    assert nans.size == 0
-
-
-def test_nans_nums_from_array_accepts_integer_array() -> None:
-    assert np.asarray(nans_nums_from_array(np.array([1, 2]))).tolist() == [1, 2]

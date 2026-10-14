@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from rhis.utils import p_value_normal
-from rhis.utils import test_decision_normal as decision_normal
+from rhis.utils import p_value_normal, p_value_normal_directional
 
-ALPHA = 0.05
 Z_NULL = 0.0
 Z_MILD = 1.5
 Z_SIGNIFICANT = 1.96
@@ -44,86 +42,71 @@ def test_p_value_normal_decreases_as_z_grows() -> None:
 
 
 # =====================================================================
-# test_decision_normal
+# p_value_normal_directional
 # =====================================================================
 
 
-def test_decision_normal_two_sided_rejects_when_p_below_alpha() -> None:
-    result = decision_normal(0.0, 0.0, Z_STRONG, 'two-sided', ALPHA)
-    assert result.reject
+def test_p_value_normal_directional_two_sided_returns_doubled_tail_p_value() -> None:
+    result = p_value_normal_directional(0.0, 0.0, Z_STRONG, 'two-sided')
     assert result.p_value == pytest.approx(0.0455, abs=P_VALUE_TOL)
 
 
-def test_decision_normal_two_sided_accepts_when_p_above_alpha() -> None:
-    result = decision_normal(0.0, 0.0, Z_MILD, 'two-sided', ALPHA)
-    assert not result.reject
+def test_p_value_normal_directional_two_sided_mild_gives_expected_p_value() -> None:
+    result = p_value_normal_directional(0.0, 0.0, Z_MILD, 'two-sided')
     assert result.p_value == pytest.approx(0.1336, abs=P_VALUE_TOL)
 
 
-def test_decision_normal_two_sided_clamps_p_value_to_one() -> None:
-    result = decision_normal(0.0, 0.0, Z_NULL, 'two-sided', ALPHA)
+def test_p_value_normal_directional_two_sided_clamps_p_value_to_one() -> None:
+    result = p_value_normal_directional(0.0, 0.0, Z_NULL, 'two-sided')
     assert result.p_value == 1.0
-    assert not result.reject
-
-
-def test_decision_normal_uses_provided_alpha_for_rejection() -> None:
-    result = decision_normal(0.0, 0.0, Z_STRONG, 'two-sided', 0.01)
-    assert result.p_value == pytest.approx(0.0455, abs=P_VALUE_TOL)
-    assert not result.reject
 
 
 @pytest.mark.parametrize(
-    ('stat', 'stat_mean', 'expected_reject'),
+    ('stat', 'stat_mean', 'expected_p'),
     [
-        (1.0, 2.0, True),
-        (2.0, 2.0, False),
-        (3.0, 2.0, False),
+        (1.0, 2.0, 0.0228),
+        (2.0, 2.0, 1.0 - 0.0228),
+        (3.0, 2.0, 1.0 - 0.0228),
     ],
 )
-def test_decision_normal_less_requires_stat_below_mean(stat, stat_mean, expected_reject) -> None:
-    result = decision_normal(stat, stat_mean, Z_STRONG, 'less', ALPHA)
-    assert result.reject == expected_reject
+def test_p_value_normal_directional_less_keeps_lower_tail_p_value(stat, stat_mean, expected_p) -> None:
+    result = p_value_normal_directional(stat, stat_mean, Z_STRONG, 'less')
+    assert result.p_value == pytest.approx(expected_p, abs=P_VALUE_TOL)
 
 
 @pytest.mark.parametrize(
-    ('stat', 'stat_mean', 'expected_reject'),
+    ('stat', 'stat_mean', 'expected_p'),
     [
-        (3.0, 2.0, True),
-        (1.0, 2.0, False),
-        (2.0, 2.0, False),
+        (3.0, 2.0, 0.0228),
+        (1.0, 2.0, 1.0 - 0.0228),
+        (2.0, 2.0, 1.0 - 0.0228),
     ],
 )
-def test_decision_normal_greater_requires_stat_above_mean(stat, stat_mean, expected_reject) -> None:
-    result = decision_normal(stat, stat_mean, Z_STRONG, 'greater', ALPHA)
-    assert result.reject == expected_reject
+def test_p_value_normal_directional_greater_keeps_upper_tail_p_value(stat, stat_mean, expected_p) -> None:
+    result = p_value_normal_directional(stat, stat_mean, Z_STRONG, 'greater')
+    assert result.p_value == pytest.approx(expected_p, abs=P_VALUE_TOL)
 
 
-def test_decision_normal_one_sided_keeps_single_tailed_p_value() -> None:
-    result = decision_normal(1.0, 2.0, Z_STRONG, 'less', ALPHA)
+def test_p_value_normal_directional_one_sided_keeps_single_tailed_p_value() -> None:
+    result = p_value_normal_directional(1.0, 2.0, Z_STRONG, 'less')
     assert result.p_value == pytest.approx(0.0228, abs=P_VALUE_TOL)
-    assert result.reject
 
 
-def test_decision_normal_one_sided_opposite_side_has_large_p_value() -> None:
+def test_p_value_normal_directional_one_sided_opposite_side_has_large_p_value() -> None:
     """
     When the statistic lies on the opposite side of the mean, the
-    one-sided p-value is large (above 0.5) instead of misleadingly
-    small, and the null hypothesis is not rejected.
+    one-sided p-value is large (above 0.5) instead of misleadingly small.
     """
-    less = decision_normal(3.0, 2.0, Z_STRONG, 'less', ALPHA)
-    greater = decision_normal(1.0, 2.0, Z_STRONG, 'greater', ALPHA)
+    less = p_value_normal_directional(3.0, 2.0, Z_STRONG, 'less')
+    greater = p_value_normal_directional(1.0, 2.0, Z_STRONG, 'greater')
 
     assert less.p_value == pytest.approx(1.0 - 0.0228, abs=P_VALUE_TOL)
     assert less.p_value > HALF_P_VALUE
-    assert not less.reject
     assert greater.p_value == pytest.approx(1.0 - 0.0228, abs=P_VALUE_TOL)
     assert greater.p_value > HALF_P_VALUE
-    assert not greater.reject
 
 
-def test_decision_normal_returns_all_fields() -> None:
-    result = decision_normal(3.0, 2.0, Z_STRONG, 'greater', ALPHA)
+def test_p_value_normal_directional_returns_p_value_and_alternative() -> None:
+    result = p_value_normal_directional(3.0, 2.0, Z_STRONG, 'greater')
     assert result.p_value == pytest.approx(0.0228, abs=P_VALUE_TOL)
-    assert result.alpha == ALPHA
-    assert result.reject
     assert result.alternative == 'greater'

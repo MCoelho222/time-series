@@ -76,9 +76,9 @@ def test_slice_init_uses_long_length_above_limit() -> None:
 # =====================================================================
 
 
-def test_slices_to_evol_produces_growing_slices() -> None:
+def test_slices_to_evol_first_slice_is_entire_series() -> None:
     result = slices_to_evol([1, 2, 3, 4, 5], 2)
-    assert result == [[1, 2], [1, 2, 3], [1, 2, 3, 4], [1, 2, 3, 4, 5]]
+    assert result == [[1, 2, 3, 4, 5], [2, 3, 4, 5], [3, 4, 5], [4, 5]]
 
 
 def test_slices_to_evol_number_of_slices() -> None:
@@ -88,10 +88,16 @@ def test_slices_to_evol_number_of_slices() -> None:
     assert len(result) == len(ts) - start + 1
 
 
-def test_slices_to_evol_last_slice_is_entire_series() -> None:
+def test_slices_to_evol_last_slice_has_start_elements() -> None:
     ts = [1, 2, 3, 4, 5]
     result = slices_to_evol(ts, 2)
-    assert result[-1] == ts
+    assert result[-1] == [4, 5]
+
+
+def test_slices_to_evol_slices_run_to_the_end() -> None:
+    ts = [1, 2, 3, 4, 5]
+    for sli in slices_to_evol(ts, 2):
+        assert sli[-1] == ts[-1]
 
 
 def test_slices_to_evol_start_equal_to_length() -> None:
@@ -104,10 +110,10 @@ def test_slices_to_evol_start_greater_than_length() -> None:
 
 def test_slices_to_evol_works_with_non_numeric_items() -> None:
     non_numeric: list[Any] = ['a', 'b', 'c']
-    assert slices_to_evol(non_numeric, 2) == [['a', 'b'], ['a', 'b', 'c']]
+    assert slices_to_evol(non_numeric, 2) == [['a', 'b', 'c'], ['b', 'c']]
 
 
 def test_slices_to_evol_accepts_numpy_array() -> None:
     result = slices_to_evol(np.array([1.0, 2.0, 3.0, 4.0, 5.0]), 3)
-    assert np.array_equal(result[0], np.array([1.0, 2.0, 3.0]))
-    assert np.array_equal(result[-1], np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+    assert np.array_equal(result[0], np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+    assert np.array_equal(result[-1], np.array([3.0, 4.0, 5.0]))

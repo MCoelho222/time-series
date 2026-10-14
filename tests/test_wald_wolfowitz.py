@@ -10,8 +10,6 @@ from rhis.utils import ranks_with_ties_corrected, to_ranks
 CONSTANT_SERIES = [5.0] * 10
 SHORT_SERIES = [1.0, 2.0]
 DEGENERATE_VARIANCE_SERIES = [1.0, 1.0, 5.0]
-ALPHA_DEFAULT = 0.05
-ALPHA_LOOSE = 0.10
 STRONG_DEPENDENCE_P = 0.01
 
 
@@ -38,7 +36,6 @@ def test_wald_wolfowitz():
 
     expected_stat = 8254
     expected_p = 0.059
-    expected_reject = False
 
     result = wald_wolfowitz(ts)
 
@@ -50,13 +47,12 @@ def test_wald_wolfowitz():
 
     assert stat_err <= accepted_stat_err
     assert p_err <= accepted_p_err
-    assert expected_reject == result.reject
 
 
 def test_wald_wolfowitz_statistic_formula() -> None:
     """
-    The statistic, p-value, and reject flag follow the documented
-    formulas computed independently for the series [2, 5, 1, 8].
+    The statistic and p-value follow the documented formulas computed
+    independently for the series [2, 5, 1, 8].
     """
     series = [2.0, 5.0, 1.0, 8.0]
     arr = np.array(series) - np.mean(series)
@@ -79,14 +75,13 @@ def test_wald_wolfowitz_statistic_formula() -> None:
 
     assert result.statistic == pytest.approx(r, abs=1e-9)
     assert result.p_value == pytest.approx(p, abs=1e-9)
-    assert result.reject == (p < ALPHA_DEFAULT)
 
 
-def test_wald_wolfowitz_alpha_threshold() -> None:
+def test_wald_wolfowitz_p_value_tail() -> None:
     """
-    The p-value does not depend on alpha; only the rejection decision
-    does. The book example has p ~ 0.0595, so it is rejected at
-    alpha = 0.10 but not at alpha = 0.05.
+    The book example has p ~ 0.059, so it falls between the usual
+    alpha values (rejected at 0.10, not rejected at 0.05) -- but the
+    test itself only reports the p-value.
     """
     ts1 = [104.3, 97.9, 89.2, 92.7, 98, 141.7, 81.1, 97.3, 72,\
             93.9, 83.8, 122.8, 87.6, 101, 97.8, 59.9, 49.4, 57,\
@@ -98,12 +93,9 @@ def test_wald_wolfowitz_alpha_threshold() -> None:
             63.6, 57.3]
     ts = ts1 + ts2
 
-    at_default = wald_wolfowitz(ts, alpha=ALPHA_DEFAULT)
-    at_loose = wald_wolfowitz(ts, alpha=ALPHA_LOOSE)
+    result = wald_wolfowitz(ts)
 
-    assert at_loose.p_value == pytest.approx(at_default.p_value, abs=1e-9)
-    assert not at_default.reject
-    assert at_loose.reject
+    assert result.p_value == pytest.approx(0.059, rel=0.1)
 
 
 def test_wald_wolfowitz_on_ranks_equals_explicit_ranks() -> None:
@@ -129,7 +121,7 @@ def test_wald_wolfowitz_minimum_valid_length() -> None:
     """
     The shortest series that yields a non-degenerate statistic has four
     observations; every three-observation series, even with distinct
-    values, has a near-zero variance and is rejected.
+    values, has a near-zero variance.
     """
     result = wald_wolfowitz([2.0, 5.0, 1.0, 8.0])
 
@@ -142,12 +134,11 @@ def test_wald_wolfowitz_minimum_valid_length() -> None:
 def test_wald_wolfowitz_strong_positive_dependence() -> None:
     """
     A strictly increasing series exhibits strong positive serial
-    dependence, so the independence hypothesis is rejected.
+    dependence, so the independence p-value is tiny.
     """
     result = wald_wolfowitz(list(np.arange(1.0, 21.0)))
 
     assert result.p_value < STRONG_DEPENDENCE_P
-    assert result.reject
 
 
 def test_wald_wolfowitz_raises_on_non_finite_values() -> None:

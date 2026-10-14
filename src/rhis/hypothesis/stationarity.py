@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from rhis.custom_types import MannKendallResults
-from rhis.utils import ranks_with_ties_corrected, test_decision_normal
+from rhis.utils import p_value_normal_directional, ranks_with_ties_corrected
 
 if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
@@ -13,9 +13,9 @@ if TYPE_CHECKING:
 
 def mann_kendall(
         ts: TimeSeriesFlex,
-        alpha: float = 0.05,
+        *,
         alternative: str = 'two-sided',
-    ) -> MannKendallResults:
+) -> MannKendallResults:
     """
     Apply the Mann-Kendall test for monotonic trend using the normal
     approximation, which is valid for series with 10 or more elements
@@ -57,17 +57,12 @@ def mann_kendall(
                 greater
                 less
 
-        alpha
-            The significance level for the test. Default is 0.05.
-
     Return
     ------
         namedtuple
-            ('MannKendallResults', ['statistic', 'p_value', 'reject',
-            'alternative'])
-            The parameter 'reject' is of type bool. 'True' means the
-            null hypothesis was rejected. 'alternative' reflects the
-            alternative hypothesis used in the test.
+            ('MannKendallResults', ['statistic', 'p_value', 'alternative'])
+            'alternative' reflects the alternative hypothesis used in
+            the test.
 
     See Also
     --------
@@ -78,7 +73,7 @@ def mann_kendall(
     n = len(ts)
     arr = np.array(ts)
     if np.all(arr == arr[0]):
-            return MannKendallResults(np.nan, np.nan, None, alternative)
+            return MannKendallResults(np.nan, np.nan, alternative)
 
     signs = []
     for i in range(n - 1):
@@ -104,15 +99,12 @@ def mann_kendall(
     else:
         z = condition_value
 
-    decision = test_decision_normal(test_s, condition_value, z, alternative, alpha)
+    result = p_value_normal_directional(test_s, condition_value, z, alternative)
 
-    return MannKendallResults(test_s, decision.p_value, decision.reject, alternative)
+    return MannKendallResults(test_s, result.p_value, alternative)
 
 if __name__ == "__main__":
-    from rhis.plotting import plot_test
-
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
 
     p_value = mann_kendall(ts).p_value
-    plot_test(ts, p_value, filename='stationarity', title='Stationarity Test Example')
     print(f"p-value: {p_value}")

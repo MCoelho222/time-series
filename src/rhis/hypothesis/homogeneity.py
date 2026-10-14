@@ -12,15 +12,14 @@ if TYPE_CHECKING:
     from rhis.custom_types import TimeSeriesFlex
 
 
-def mann_whitney(  # noqa: PLR0913
+def mann_whitney(
         ts1: TimeSeriesFlex,
         ts2: TimeSeriesFlex | None = None,
-        alpha: float = 0.05,
-        alternative: str = 'two-sided',
         *,
+        alternative: str = 'two-sided',
         continuity: bool = True,
         ties: bool = True,
-        ) -> MannWhitneyResults:
+) -> MannWhitneyResults:
     """
     Compare two independent groups of data using the Mann-Whitney U test.
 
@@ -63,8 +62,6 @@ def mann_whitney(  # noqa: PLR0913
             two-sided: ts1 != ts2
             greater: ts1 > ts2
             less: ts1 < ts2
-        alpha
-            The significance level (0.05 by default).
         continuity
             If True, applies correction for continuity.
         ties
@@ -73,11 +70,9 @@ def mann_whitney(  # noqa: PLR0913
     Returns
     -------
         A namedtuple
-            ('MannWhitneyResults', ['statistic', 'p_value', 'reject',
-            'alternative'])
-            The parameter 'reject' is of type bool. 'True' means the null
-            hypothesis was rejected. The parameter 'alternative' is a str
-            reflecting the alternative hypothesis used in the test.
+            ('MannWhitneyResults', ['statistic', 'p_value', 'alternative'])
+            The parameter 'alternative' is a str reflecting the
+            alternative hypothesis used in the test.
 
     See Also
     --------
@@ -88,7 +83,7 @@ def mann_whitney(  # noqa: PLR0913
 
     if ts2 is None:
         if np.all(np.array(ts1) == np.array(ts1)[0]):
-                return MannWhitneyResults(np.nan, np.nan, None, alternative)
+                return MannWhitneyResults(np.nan, np.nan, alternative)
 
         data = split_into_parts(ts1, 2)
         ts1 = data[0]
@@ -145,23 +140,18 @@ def mann_whitney(  # noqa: PLR0913
 
     p = f * sts.norm.sf(z)
     p = min(1.0, p)
-    reject = p < alpha
-
-    return MannWhitneyResults(stat, p, reject, alternative)
+    return MannWhitneyResults(stat, p, alternative)
 
 
 if __name__ == "__main__":
-    from rhis.plotting import plot_test
-
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]
     ts_splitted = split_into_parts(ts, 2)
     ts1 = ts_splitted[0]
     ts2 = ts_splitted[1]
 
-    ts1 = [5.0]*7
-    ts2 = [7.0]*5
+    ts1 = [5.0] * 7
+    ts2 = [7.0] * 5
     p_value = mann_whitney(ts1).p_value
-    plot_test(ts, p_value, filename='homogeneity', title='Homogeneity Test Example')
 
     print(f"p-value: {p_value}")
     print(sts.mannwhitneyu(ts1, ts2, method='asymptotic').pvalue)

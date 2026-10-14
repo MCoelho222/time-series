@@ -74,7 +74,6 @@ def test_mann_whitney_matches_scipy(alternative, continuity):
         )
 
     assert result.p_value == pytest.approx(reference.pvalue, abs=SCIPY_TOL)
-    assert result.reject == (result.p_value < ALPHA)
     assert result.alternative == alternative
 
 
@@ -120,26 +119,24 @@ def test_mann_whitney_statistic_is_minimum_u():
 def test_mann_whitney_one_sided_direction():
     """
     One-sided p-values reflect the observed direction: the industrial
-    site has a larger median, so 'greater' rejects while 'less' does not.
+    site has a larger median, so 'greater' has a small p-value while
+    'less' is large.
     """
     greater = mann_whitney(X, Y, alternative='greater')
     less = mann_whitney(X, Y, alternative='less')
 
     assert greater.p_value == pytest.approx(0.0246, abs=P_VALUE_TOL)
-    assert greater.reject
-    assert not less.reject
     assert less.p_value > P_HALF
 
 
 def test_mann_whitney_one_sided_wrong_direction():
     """
     When the data contradict the one-sided alternative, the p-value
-    approaches 1 and the null hypothesis is not rejected.
+    approaches 1.
     """
     result = mann_whitney(Y, X, alternative='greater')
 
     assert result.p_value > P_HALF
-    assert not result.reject
 
 
 def test_mann_whitney_univariate_split():
@@ -159,14 +156,12 @@ def test_mann_whitney_univariate_split():
 def test_mann_whitney_constant_input_single_ts():
     """
     When both groups contain a single identical value, the test is
-    undefined; a p-value of 1.0 (no rejection) is returned instead of
-    raising.
+    undefined; NaN statistic and p-value are returned instead of raising.
     """
     result = mann_whitney([5.0] * 7, alternative='two-sided')
 
     assert np.isnan(result.statistic)
     assert np.isnan(result.p_value)
-    assert result.reject is None
     assert result.alternative == 'two-sided'
 
 
