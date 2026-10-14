@@ -2,7 +2,7 @@
 
 ## What is RHIS?
 
-RHIS stands for **R**andomness, **H**omogeneity, **I**ndependence and **S**tationarity. These are the four basic assumptions a time series is expected to satisfy to be considered *statistically representative* (Naghettini, 2007; Coelho et al., 2017; Coelho, 2019). They underpin almost every frequency analysis, design flood or trend study: if these assumptions do not hold, the results may not reflect current conditions.
+RHIS stands for **R**andomness, **H**omogeneity, **I**ndependence and **S**tationarity. These are the four basic assumptions a time series is expected to satisfy to be considered *statistically representative* (Naghettini, 2007; Coelho et al., 2017; Coelho et al., 2019). They underpin almost every frequency analysis, design flood or trend study: if these assumptions do not hold, the results may not reflect current conditions.
 
 Each assumption is checked with a well-known non-parametric test:
 
@@ -20,9 +20,48 @@ When one or more of these hypotheses are rejected, the record probably contains 
 
 ## What it does?
 
-RHIS finds the **longest recent stretch of a time series that passes all four tests** — in other words, the longest part of the record you can safely use.
+RHIS finds the **longest recent stretch of a time series that passes all four tests** — in other words, the longest part of the record you can "safely" use.
 
-It tests every window that ends at the most recent observation: it starts with the smallest usable window (the last 5 or 10 values) and grows it one observation at a time until the complete series has been tested. Every window gets a p-value per hypothesis, and the results come back as a simple dict. Read from the oldest to the most recent starting point, the p-values show where the series first becomes fully RHIS-compliant — and that point is the selection boundary.
+It tests every window ending at the most recent observation, starting with the longest possible window (the entire time series). It then shortens the window by removing one observation from the beginning at a time, until only the 10 most recent values remain. Ten observations is the minimum sample size for the hypothesis tests, based on the normal approximation.
+
+For each window, RHIS calculates a p-value for each of the four hypotheses. It then takes the minimum of these four p-values to obtain RHIS-min. This ensures that all four hypotheses are considered when determining whether a window passes the tests.
+
+The windows are evaluated from longest to shortest, meaning the starting point moves from oldest to newest. The first time RHIS-min reaches or exceeds the significance level (\alpha) (0.05 by default), all four hypotheses are no longer rejected. This identifies the boundary between the RHIS-compliant recent stretch and the earlier observations.
+
+The results are returned as a simple dictionary containing the p-values for each hypothesis and the (start, end) indexes of the RHIS-compliant stretch.
+
+For example, a time series with 15 elements produces six p-values for each hypothesis, corresponding to windows of sizes 15, 14, 13, 12, 11, and 10.
+
+```py
+p_evol = {
+    'series_0': {
+        'R': [0.0000, 0.1772, 0.0523, 0.0014, 0.0272, 0.0541],
+        'H': [0.0021, 0.0727, 0.3645, 0.0033, 0.3372, 0.2641],
+        'I': [0.1000, 0.0645, 0.9234, 0.2219, 0.1275, 0.5433],
+        'S': [0.0670, 0.0145, 0.0023, 0.2943, 0.7369, 0.6182],
+        'RHIS-min': [0.0000, 0.0145, 0.0023, 0.0014, 0.0272, 0.0541]
+        }
+}
+
+# For R:
+# 0.0000 -> p-value for the complete series (N=15)
+# 0.1772 -> p-value with N - 1 observations
+# 0.0523 -> p-value with N - 2 observations
+# 0.0014 -> p-value with N - 3 observations
+# 0.0272 -> p-value with N - 4 observations
+# 0.0541 -> p-value with N - 5 observations (10 most recent values)
+
+idxs = {
+    'series_0': (5, 15)
+    }
+
+# 5  -> index of the first observation in the RHIS-compliant stretch
+# 15 -> exclusive end index (the last observation is at index 14)
+```
+
+Reading the RHIS-min values from left to right, we can see how the series becomes RHIS-compliant as the window gets shorter. With (\alpha = 0.05), the first window that passes all four tests is the one containing the 10 most recent observations, where RHIS-min = 0.0541.
+
+Therefore, the RHIS-compliant stretch starts at index 5 and ends at index 15 (exclusive), corresponding to the last 10 observations of the series.
 
 ## What do these tests actually test?
 
@@ -50,7 +89,12 @@ RHIS gives you statistics; you bring the context. A few things are worth knowing
 
 ### What kind of series it works with
 
-RHIS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. Each column needs at least 10 numeric values to be considered, and every window it tests needs a handful of values (5, or 10 for long records). Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
+RHIS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. You can hand it that table in either of two ways:
+
+- a `pandas.DataFrame` (every row is a time step, so the row index must not be a MultiIndex; the columns may use a MultiIndex, in which case the series are keyed by the column-label tuples), or
+- a mapping (for example a `dict`) of series names to sequences of numbers, read positionally — a `pandas.Series` index is ignored, and series of different lengths are padded with NaN internally. The reported indexes are always relative to each original series, never to the padded table.
+
+Each column needs at least 10 numeric values to be considered, and every window it tests needs a handful of values (5, or 10 for long records). Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
 
 ### What the tests can and cannot tell you
 
@@ -72,13 +116,17 @@ The tests read a sequence of numbers, not dates. They do not know whether your d
 
 A small p-value means "this pattern is unlikely to be chance" — not "the river has changed". A large p-value means "no evidence of a problem here" — not "the data are correct". Always read the numbers alongside what you know: new construction or a dam, land-use change, a relocated gauge, a new instrument or analyst, a change in sampling. Treat the representative period as a well-supported suggestion for analysis, not a promise about future conditions.
 
-## Scientific foundations
+## References
 
-These tests were used in my doctoral thesis to assess the representativeness of water quality time series in the Alto Iguaçu Watershed in southern Brazil.
+Coelho, M.; Fernandes, C. V. S.; Detzel, D. H. M.; Mannich, M. [Statistical validity of water quality time series in urban watersheds](https://www.scielo.br/j/rbrh/a/KyMFpKdRKYHvzh8pjQhvGCM/?lang=en). Brazilian Journal of Water Resources, v.22, e51, 2017.
 
-If you are interested, please check out the article below.
+Coelho, M.; Fernandes, C. V. S.; Detzel, D. H. M. [Uncertainty analysis in the detection of trends, cycles, and shifts in water resources time series](https://link.springer.com/article/10.1007/s11269-019-02210-1). Water Resources Management, v.27, p.1 - 16, 2019.
 
-[Uncertainty analysis in the detection of trends, cycles, and shifts in water resources time series](https://link.springer.com/article/10.1007/s11269-019-02210-1)
+HELSEL & HIRSCH (2002). [Techniques of Water Resources investigations fo the United States Geological Survey. Chapter 5 - Statistical Methods in Water Resources](https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf).
+
+NAGHETTINI, M.; PINTO, E. J. A. Hidrologia e estatística. Geological Survey of Brazil. Belo Horizonte: CPRM, 2007.
+
+Wald, A., & Wolfowitz, J. (1943). [An exact test for randomness in the non-parametric case based on serial correlation](https://projecteuclid.org/journalArticle/Download?urlId=10.1214%2Faoms%2F1177731358). Annals of Mathematical Statistics, 14(4), 378-388.
 
 ## Install and Run
 
@@ -102,14 +150,27 @@ rhis
 
 ## Using RHIS
 
+Give `Rhis` either a `pandas.DataFrame` or a mapping of series names to value sequences.
+
 ```py
 import pandas as pd
 from rhis import Rhis
 
+# From a DataFrame: each column is a series, each row a time step.
 df = pd.read_csv("data.csv")
 
 rhis = Rhis(df)
 
+# ... or from a dict of series name -> sequence of values.
+rhis = Rhis({
+    "flow": [1100, 1160, 1160, 813, 1120, 1150],
+    "rain": [420, 390, 505, 460, 480, 510],
+})
+```
+
+Both forms expose the same API:
+
+```py
 # 1. The RHIS evolution, as a nested dict: one list of p-values per hypothesis
 #    ("R", "H", "I", "S") plus their row-wise minimum ("RHIS-min"). Entry i is
 #    the p-value of the period that starts at observation i and runs to the
@@ -122,5 +183,7 @@ evol = evolutions["flow"]
 repr_idxs = rhis.get_repr_idxs()
 
 start, end = repr_idxs["flow"]
-representative_df = df.iloc[start:end]
+representative = df.iloc[start:end]
 ```
+
+If the DataFrame columns are a MultiIndex, the series keys are the column-label tuples (for example `("flow", "m3s")`), and you look them up with that tuple.
