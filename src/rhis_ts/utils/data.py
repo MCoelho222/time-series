@@ -7,7 +7,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
 
-    from rhis.custom_types import TimeSeriesFlex
+    from rhis_ts.custom_types import TimeSeriesFlex
 
 
 def split_into_parts(ts: TimeSeriesFlex, parts: int) -> list[TimeSeriesFlex]:

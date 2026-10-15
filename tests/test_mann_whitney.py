@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from scipy.stats import mannwhitneyu
 
-from rhis.hypothesis import mann_whitney
-from rhis.utils import ranks_with_ties_corrected, split_into_parts
+from rhis_ts.hypothesis import mann_whitney
+from rhis_ts.utils import ranks_with_ties_corrected, split_into_parts
 
 P_VALUE_TOL = 1e-4
 SCIPY_TOL = 1e-6
@@ -37,7 +37,7 @@ def test_mann_whitney():
     - the p-value agrees with the independent asymptotic reference
       implementation scipy.stats.mannwhitneyu (method='asymptotic').
 
-    See also: src/rhis/docs/hypothesis_tests/mann_whitney.md
+    See also: src/rhis_ts/docs/hypothesis_tests/mann_whitney.md
     """
     x = X
     y = Y

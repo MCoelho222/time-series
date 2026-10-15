@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.stats as sts
 
-from rhis.custom_types import MannWhitneyResults
-from rhis.utils import ranks_with_ties_corrected, split_into_parts
+from rhis_ts.custom_types import MannWhitneyResults
+from rhis_ts.utils import ranks_with_ties_corrected, split_into_parts
 
 if TYPE_CHECKING:
-    from rhis.custom_types import TimeSeriesFlex
+    from rhis_ts.custom_types import TimeSeriesFlex
 
 
 def mann_whitney(
@@ -76,7 +76,7 @@ def mann_whitney(
 
     See Also
     --------
-        src/rhis/docs/hypothesis_tests/mann_whitney.md
+        src/rhis_ts/docs/hypothesis_tests/mann_whitney.md
             Full description of the test statistic, its distribution,
             corrections, and the interpretation of the results.
     """

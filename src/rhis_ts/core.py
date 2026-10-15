@@ -8,17 +8,17 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame
 
-from rhis.hypothesis.homogeneity import mann_whitney
-from rhis.hypothesis.independence import wald_wolfowitz
-from rhis.hypothesis.randomness import wallis_moore
-from rhis.hypothesis.stationarity import mann_kendall
-from rhis.utils import clean_numeric_array, slices_to_evol
+from rhis_ts.hypothesis.homogeneity import mann_whitney
+from rhis_ts.hypothesis.independence import wald_wolfowitz
+from rhis_ts.hypothesis.randomness import wallis_moore
+from rhis_ts.hypothesis.stationarity import mann_kendall
+from rhis_ts.utils import clean_numeric_array, slices_to_evol
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
     from pandas import Series
 
-    from rhis.custom_types.data import SeriesKey, TimeSeriesFlex
+    from rhis_ts.custom_types.data import SeriesKey, TimeSeriesFlex
 
 MIN_SERIES_LENGTH = 8
 DEFAULT_ALPHA = 0.05

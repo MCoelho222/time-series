@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rhis.core import MIN_SERIES_LENGTH, Rhis
-from rhis.hypothesis import wald_wolfowitz
+from rhis_ts.core import MIN_SERIES_LENGTH, Rhis
+from rhis_ts.hypothesis import wald_wolfowitz
 
 DEFAULT_ALPHA = 0.05
 

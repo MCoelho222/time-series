@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from rhis.utils import p_value_normal, p_value_normal_directional
+from rhis_ts.utils import p_value_normal, p_value_normal_directional
 
 Z_NULL = 0.0
 Z_MILD = 1.5

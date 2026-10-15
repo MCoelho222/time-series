@@ -8,7 +8,7 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-    from rhis.custom_types import TiesData, TimeSeriesFlex
+    from rhis_ts.custom_types import TiesData, TimeSeriesFlex
 
 
 def get_ties_index(ts: TimeSeriesFlex, start: int = 0) -> list[int]:

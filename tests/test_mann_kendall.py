@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 import scipy.stats as sts
 
-from rhis.hypothesis import mann_kendall
-from rhis.utils import ranks_with_ties_corrected
+from rhis_ts.hypothesis import mann_kendall
+from rhis_ts.utils import ranks_with_ties_corrected
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from rhis.custom_types import MannKendallResults
-from rhis.utils import p_value_normal_directional, ranks_with_ties_corrected
+from rhis_ts.custom_types import MannKendallResults
+from rhis_ts.utils import p_value_normal_directional, ranks_with_ties_corrected
 
 if TYPE_CHECKING:
-    from rhis.custom_types import TimeSeriesFlex
+    from rhis_ts.custom_types import TimeSeriesFlex
 
 
 def mann_kendall(
@@ -66,7 +66,7 @@ def mann_kendall(
 
     See Also
     --------
-        src/rhis/docs/hypothesis_tests/mann_kendall.md
+        src/rhis_ts/docs/hypothesis_tests/mann_kendall.md
             Full description of the statistic, its distribution, and the
             interpretation of the results.
     """

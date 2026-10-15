@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import scipy.stats as sts
 
-from rhis.custom_types import NormalPValue
+from rhis_ts.custom_types import NormalPValue
 
 
 def p_value_normal(z: float) -> float:

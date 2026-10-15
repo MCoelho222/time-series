@@ -20,9 +20,9 @@ When one or more of these hypotheses are rejected, the record probably contains 
 
 ## What it does?
 
-RHIS finds the **longest recent stretch of a time series that passes all four tests** — in other words, the longest part of the record you can "safely" use.
+RHIS-TS finds the **longest recent stretch of a time series that passes all four tests** — in other words, the longest part of the record you can "safely" use.
 
-It tests every window ending at the most recent observation, starting with the longest possible window (the entire time series). It then shortens the window by removing one observation from the beginning at a time, until only the 10 most recent values remain. Ten observations is the minimum sample size for the hypothesis tests, based on the normal approximation.
+It tests every window ending at the most recent observation, starting with the longest possible window (the entire time series). It then shortens the window by removing one observation from the beginning at a time, until only the 8 most recent values remain. Eight observations is the minimum sample size: the smallest length at which all four tests are still able to reach significance.
 
 For each window, RHIS calculates a p-value for each of the four hypotheses. It then takes the minimum of these four p-values to obtain RHIS-min. This ensures that all four hypotheses are considered when determining whether a window passes the tests.
 
@@ -163,16 +163,16 @@ pip install -e .[dev]
 To see an example:
 
 ```bash
-rhis
+rhis-ts
 ```
 
-## Using RHIS
+## Using RHIS-TS
 
 Give `Rhis` either a `pandas.DataFrame` or a mapping of series names to value sequences.
 
 ```py
 import pandas as pd
-from rhis import Rhis
+from rhis_ts import Rhis
 
 # From a DataFrame: each column is a series, each row a time step.
 df = pd.read_csv("data.csv")

@@ -1,5 +1,5 @@
 [project]
-name = "rhis"
+name = "rhis-ts"
 description = "Methods for representativeness verification in times series analyses"
 authors = [{name = "Marcelo Coelho", email = "mcoelho2011@hotmail.com"}]
 requires-python = ">=3.10"
@@ -30,7 +30,7 @@ requires = [
 
   [tool.setuptools.dynamic]
     dependencies = {file = ["requirements/requirements.txt"]}
-    version = {attr = "rhis.__version__"}
+    version = {attr = "rhis_ts.__version__"}
     readme = {file = ["README.md"], content-type = "text/markdown"}
 
   [tool.setuptools.dynamic.optional-dependencies]
@@ -40,7 +40,7 @@ requires = [
   universal = true
 
 [project.scripts]
-rhis = "rhis:__main__.main"
+rhis-ts = "rhis_ts:__main__.main"
 
 [tool.ruff]
   line-length = 128
@@ -111,7 +111,7 @@ rhis = "rhis:__main__.main"
     skip-magic-trailing-comma = false
 
   [tool.ruff.lint.isort]
-    known-first-party = ["rhis", "tests", "testing"]
+    known-first-party = ["rhis_ts", "tests", "testing"]
     split-on-trailing-comma = true
     required-imports = ["from __future__ import annotations"]
 
@@ -135,7 +135,7 @@ rhis = "rhis:__main__.main"
   fail_under = 90
 
 [tool.coverage.run]
-  source = ["rhis"]
+  source = ["rhis_ts"]
   plugins = ["covdefaults"]
 
 [tool.mypy]

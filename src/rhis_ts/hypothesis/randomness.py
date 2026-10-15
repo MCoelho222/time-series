@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from rhis.custom_types import RunsTestResults, WallisMooreResults
-from rhis.utils import p_value_normal_directional
+from rhis_ts.custom_types import RunsTestResults, WallisMooreResults
+from rhis_ts.utils import p_value_normal_directional
 
 if TYPE_CHECKING:
-    from rhis.custom_types import TimeSeriesFlex
+    from rhis_ts.custom_types import TimeSeriesFlex
 
 
 def runs_test(  # noqa: C901
@@ -63,7 +63,7 @@ def runs_test(  # noqa: C901
 
     See Also
     --------
-        src/rhis/docs/hypothesis_tests/runs_test.md
+        src/rhis_ts/docs/hypothesis_tests/runs_test.md
             Full description of the statistic, its distribution, and the
             interpretation of the results.
     """
@@ -172,7 +172,7 @@ def wallis_moore(
 
     See Also
     --------
-        src/rhis/docs/hypothesis_tests/wallis_moore.md
+        src/rhis_ts/docs/hypothesis_tests/wallis_moore.md
             Full description of the phase statistic, its distribution,
             and the interpretation of the results.
     """

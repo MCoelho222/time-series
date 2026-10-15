@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from rhis.utils import slices_to_evol, split_into_parts
+from rhis_ts.utils import slices_to_evol, split_into_parts
 
 SPLIT_INTO_TWO = 2
 SPLIT_INTO_FOUR = 4

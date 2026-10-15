@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from scipy.stats import norm
 
-from rhis.hypothesis import wald_wolfowitz
-from rhis.utils import ranks_with_ties_corrected, to_ranks
+from rhis_ts.hypothesis import wald_wolfowitz
+from rhis_ts.utils import ranks_with_ties_corrected, to_ranks
 
 CONSTANT_SERIES = [5.0] * 10
 SHORT_SERIES = [1.0, 2.0]
