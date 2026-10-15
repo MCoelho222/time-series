@@ -18,6 +18,14 @@ When one or more of these hypotheses are rejected, the record probably contains 
 * **Changes in land use or climate** — the seasonal and year-to-year behaviour changes, adding cycles or irregular swings.
 * **The Nile** — the example shipped with this package is a classic record with a clear change point.
 
+## Why Non-Parametric?
+
+Water-resources data are often skewed, contain outliers, or do not follow a normal distribution. Non-parametric tests work with the order or ranks of values instead of relying on a specific data distribution, so they are a good fit for many environmental time series.
+
+They are not always more powerful than parametric tests, but they can perform just as well—or better—when data do not meet parametric assumptions. They also handle extreme values more robustly, although outliers can still affect the results.
+
+Although RHIS-TS was inspired by environmental time series, it can be applied to any time-ordered numerical data where checking randomness, homogeneity, independence, and stationarity is useful.
+
 ## What it does?
 
 RHIS-TS finds the **longest recent stretch of a time series that passes all four tests** — in other words, the longest part of the record you can "safely" use.
@@ -66,7 +74,7 @@ Reading the RHIS-min values from left to right, we can see how the series become
 
 Therefore, the RHIS-compliant stretch starts at index 5 and ends at index 15 (exclusive), corresponding to the last 8 observations of the series.
 
-## The Nile example
+## River Nile example
 
 The Nile dataset is the annual river flow measured at Aswan, Egypt, from 1871 to 1970 — 100 years in units of 10⁸ m³. Time-series analyses (going back to Cobb, 1978) find an abrupt changepoint around 1898: the mean annual flow fell from roughly 109 billion m³ (1871–1897) to about 86 billion m³ after the turn of the century. The series is a classic in statistics, econometrics, and data science — shipped as the `Nile` dataset in R and in Statsmodels — and is widely used for ARIMA modeling, structural-break detection, and general time-series work.
 

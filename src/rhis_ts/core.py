@@ -1,3 +1,4 @@
+"""The Rhis class: run the four RHIS-TS tests and locate the representative stretch."""
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -22,8 +23,6 @@ if TYPE_CHECKING:
 
 MIN_SERIES_LENGTH = 8
 DEFAULT_ALPHA = 0.05
-
-RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
 
 _SERIES_LIKE = (Sequence, np.ndarray, pd.Series)
 
@@ -92,6 +91,56 @@ def _normalize_input(
 
 
 class Rhis:
+    """
+    Run the RHIS-TS representativeness analysis on a table of time series.
+
+    RHIS-TS checks four assumptions - Randomness (R), Homogeneity (H),
+    Independence (I) and Stationarity (S) - on every window that ends at the
+    most recent observation. Starting from the complete series, the window is
+    shortened one observation at a time; the first (and therefore longest)
+    window that fails to reject all four hypotheses is the representative
+    stretch.
+
+    Building an instance only normalizes and stores the input; the analysis
+    runs on demand through two public methods:
+
+        build_rhis_evol_dict(ts_name=None)
+            Return the p-value evolution for each hypothesis and each series.
+
+        get_repr_idxs(ts_name=None, alpha=None)
+            Return the (start, end) positional indexes of the representative
+            stretch for each series.
+
+    Parameters
+    ----------
+        data
+            The time series to analyse, as a pandas.DataFrame or a mapping of
+            series names to value sequences. See Rhis.__init__ for the
+            accepted inputs and how each series is interpreted.
+
+    Attributes
+    ----------
+        orig_df
+            The input as a DataFrame; the mapping form is materialized and
+            ragged series are NaN-padded.
+        numeric_orig_df
+            orig_df coerced to numeric, with unusable columns dropped.
+        series_lengths
+            Original length of every series.
+        pvalues
+            Per-series cache of the p-value evolution.
+        repr_idxs
+            Per-series representative-stretch indexes; None until
+            get_repr_idxs() is called.
+        alpha
+            Significance level (0.05 by default).
+
+    See Also
+    --------
+        Rhis.__init__ : accepted inputs and per-series interpretation.
+        Rhis.build_rhis_evol_dict, Rhis.get_repr_idxs : the public analysis.
+    """
+
     def __init__(self, data: DataFrame | Mapping[str, TimeSeriesFlex | Series]) -> None:
         """
         Prepare a table of time series for RHIS analysis.
@@ -122,6 +171,8 @@ class Rhis:
         self.orig_df: DataFrame = normalized_df
         self.series_lengths: dict[SeriesKey, int] = series_lengths
         self.numeric_orig_df: DataFrame = self.orig_df.copy().apply(pd.to_numeric, errors='coerce')
+        # Columns with no usable numeric value at all (everything was non-numeric or missing);
+        # partially numeric ones are filtered by length in the loop below.
         cols_to_drop = self.numeric_orig_df.columns[self.numeric_orig_df.isna().all()].to_list()
 
         for col in self.numeric_orig_df.columns:
@@ -135,8 +186,15 @@ class Rhis:
             self.numeric_orig_df = self.numeric_orig_df.drop(columns=cols_to_drop)
 
         self.alpha = DEFAULT_ALPHA
+        # The package's final answer: for each series, the (start, end) positional indexes of
+        # the RHIS-compliant representative stretch, meant to be sliced with .iloc[start:end].
+        # None until get_repr_idxs() computes it (and cached there afterwards).
         self.repr_idxs: dict[SeriesKey, tuple[int, int]] | None = None
 
+        # Per-series cache of the p-value evolution: one list per hypothesis ("R", "H", "I",
+        # "S") plus their row-wise minimum ("RHIS-min"). Each list has one entry per starting
+        # observation and is populated lazily by build_rhis_evol_dict(); empty lists mean "not
+        # computed yet".
         self.pvalues: dict[SeriesKey, dict[str, list[float]]] = {}
         for col in self.numeric_orig_df.columns:
             self.pvalues[col] = {'R': [], 'H': [], 'I': [], 'S': [], 'RHIS-min': []}
@@ -146,6 +204,37 @@ class Rhis:
         self,
         ts_name: SeriesKey | None = None,
     ) -> dict[SeriesKey, dict[str, list[float]]]:
+        """
+        Compute the p-value evolution of every window ending at the latest observation.
+
+        The evolution starts with the complete series (index 0) and then drops
+        one observation from the beginning at a time, so the value at index i
+        belongs to the slice that starts at position i and runs to the end of
+        the series. Trailing entries are NaN because the remaining slices have
+        fewer than MIN_SERIES_LENGTH observations to test; an earlier entry is
+        NaN as well whenever the tests cannot be run on that slice, for instance
+        when every value in it is equal.
+
+        Results are computed once per series and cached in Rhis.pvalues;
+        repeated calls return the very same lists.
+
+        Parameters
+        ----------
+            ts_name
+                The series to build. None (the default) builds every series.
+
+        Returns
+        -------
+            A dict keyed by series name, holding one list of p-values per
+            hypothesis ("R", "H", "I", "S") plus their row-wise minimum
+            ("RHIS-min"). Every list has one entry per observation of the
+            original series.
+
+        Raises
+        ------
+            ValueError
+                If 'ts_name' is not one of the known series names.
+        """
         if ts_name is not None and ts_name not in self.pvalues:
             msg = f"The parameter 'ts_name' ({ts_name!r}) is not a known series name."
             logger.debug(msg)
@@ -167,6 +256,45 @@ class Rhis:
         ts_name: SeriesKey | None = None,
         alpha: float | None = None,
     ) -> dict[SeriesKey, tuple[int, int]]:
+        """
+        Return the (start, end) indexes of the RHIS-compliant stretch of each series.
+
+        The representative stretch is the longest slice that still ends at the
+        most recent observation and fails to reject all four hypotheses, i.e.
+        whose "RHIS-min" is at least 'alpha'. Because every candidate slice
+        ends at the same observation, the first passing slice while walking
+        from the longest (the complete series) to the shortest is by
+        definition the longest passing one. Slices that could not be tested
+        (shorter than MIN_SERIES_LENGTH, or with every value equal) appear
+        as NaN and stop the search.
+
+        The indexes are positional and meant to be sliced with .iloc[start:end].
+
+        Parameters
+        ----------
+            ts_name
+                The series to evaluate. None (the default) evaluates every
+                series.
+            alpha
+                The significance level. None (the default) uses Rhis.alpha.
+
+        Returns
+        -------
+            A dict keyed by series name, each value being a tuple
+            (start, end) of positional indexes into the original series. The
+            representative stretch is the empty slice (0, 0) when no testable
+            slice passes.
+
+        Raises
+        ------
+            ValueError
+                If 'ts_name' is not one of the known series names.
+
+        See Also
+        --------
+            Rhis.build_rhis_evol_dict : builds the p-value evolution used here.
+            Rhis._find_rhis_compliant_idxs : the slice-selection logic.
+        """
         alpha = self.alpha if alpha is None else alpha
         evols = self.build_rhis_evol_dict(ts_name)
 
@@ -193,12 +321,14 @@ class Rhis:
             pvalue_ts
                 The evolution of p-values computed by Rhis.build_rhis_evol_dict()
                 for a single time series (or for a derived statistic, like
-                'min', computed over its R, H, I and S p-values). The
+                'RHIS-min', computed over its R, H, I and S p-values). The
                 value at index i is the p-value of the slice that starts
                 at position i and runs to the very end of the series.
-                Index 0 tests the complete series, and the trailing
-                entries are NaN because there are not enough
-                observations left to run the tests.
+                Index 0 tests the complete series. The trailing entries
+                are NaN because those slices are shorter than
+                MIN_SERIES_LENGTH; an earlier entry may be NaN too, when
+                the slice has enough observations but the tests cannot be
+                computed on it, e.g. every value in it is equal.
 
             alpha
                 The significance level. A p-value greater than or equal
@@ -217,8 +347,8 @@ class Rhis:
             return (0, 0)
 
         # The first entry tests the complete time series. When p >= alpha
-        # the whole series passed every RHIS test (or the selected one),
-        # so the representative slice is the entire series.
+        # the whole series passed every RHIS test, so the representative
+        # slice is the entire series.
         if pvalue_ts[0] >= alpha:
             return (0, pvalue_ts_last)
 
@@ -233,11 +363,17 @@ class Rhis:
         # the LONGEST one that passes and still reaches the most recent
         # observation.
         #
-        # NaN entries mark slices too short to test; they act as a
-        # stopping boundary, just like a passing p-value. pvalue_ts[0]
-        # is always a real number here (the complete series is long
-        # enough to test), so we are guaranteed to find a stopping
-        # point somewhere after index 0.
+        # NaN entries mark slices that could not be tested: shorter than
+        # MIN_SERIES_LENGTH, or long enough but degenerate (every value
+        # equal, for instance). They act as a stopping boundary, just like
+        # a passing p-value.
+        #
+        # For an evolution built by build_rhis_evol_dict(), pvalue_ts[0] is
+        # a real number here: were it NaN, the complete series itself would
+        # be untestable (too short, or all values equal), every slice would
+        # be NaN too, and the check above would already have returned. Such
+        # an evolution also always ends with MIN_SERIES_LENGTH - 1 NaN
+        # entries, so a stopping point after index 0 is guaranteed.
         fails_to_reject = ~(pvalue_ts < alpha)  # p >= alpha, or NaN
         idx = int(np.argmax(fails_to_reject))
 
@@ -273,14 +409,43 @@ class Rhis:
 
     @staticmethod
     def calculate_rhis(ts: TimeSeriesFlex) -> dict[str, float]:
+        """
+        Compute the four RHIS p-values of a single time series.
+
+        Slices that cannot be tested get NaN instead of an error: a slice
+        shorter than MIN_SERIES_LENGTH, or one whose values are so close
+        together (up to and including a run of equal values) that the
+        underlying statistic is degenerate. NaN is the package-wide signal
+        for 'untestable'.
+
+        Parameters
+        ----------
+            ts
+                The time series to test. Non-numeric and non-finite values
+                are ignored.
+
+        Returns
+        -------
+            A dict with one p-value per hypothesis: 'R' (randomness),
+            'H' (homogeneity), 'I' (independence) and 'S' (stationarity).
+        """
         ts = clean_numeric_array(ts)
         if len(ts) < MIN_SERIES_LENGTH:
             return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
 
+        try:
+            independence_p = wald_wolfowitz(ts, on_ranks=True).p_value
+        except ValueError:
+            # A slice with an extremely small spread (for example a long run
+            # of equal values) has no meaningful serial-correlation variance,
+            # so Wald-Wolfowitz refuses to test it. The slice is untestable,
+            # and untestable slices are marked with NaN.
+            independence_p = np.nan
+
         result = {
             'R': wallis_moore(ts).p_value,
             'H': mann_whitney(ts).p_value,
-            'I': wald_wolfowitz(ts, on_ranks=True).p_value,
+            'I': independence_p,
             'S': mann_kendall(ts).p_value,
         }
 
