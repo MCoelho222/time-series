@@ -30,16 +30,16 @@ The windows are evaluated from longest to shortest, meaning the starting point m
 
 The results are returned as a simple dictionary containing the p-values for each hypothesis and the (start, end) indexes of the RHIS-compliant stretch.
 
-For example, a time series with 15 elements produces six p-values for each hypothesis, corresponding to windows of sizes 15, 14, 13, 12, 11, and 10.
+For example, a time series with 15 elements produces six p-values for each hypothesis, corresponding to windows of sizes 15, 14, 13, 12, 11, 10, 9, and 8.
 
 ```py
 p_evol = {
-    'series_0': {
-        'R': [0.0000, 0.1772, 0.0523, 0.0014, 0.0272, 0.0541],
-        'H': [0.0021, 0.0727, 0.3645, 0.0033, 0.3372, 0.2641],
-        'I': [0.1000, 0.0645, 0.9234, 0.2219, 0.1275, 0.5433],
-        'S': [0.0670, 0.0145, 0.0023, 0.2943, 0.7369, 0.6182],
-        'RHIS-min': [0.0000, 0.0145, 0.0023, 0.0014, 0.0272, 0.0541]
+    'flows': {
+        'R': [0.0000, 0.1772, 0.0523, 0.0014, 0.0272, 0.0015, 0.0883, 0.0541],
+        'H': [0.0021, 0.0727, 0.3645, 0.0033, 0.3372, 0.0232, 0.0736, 0.2641],
+        'I': [0.1000, 0.0645, 0.9234, 0.2219, 0.1275, 0.0664, 0.0102, 0.5433],
+        'S': [0.0670, 0.0145, 0.0023, 0.2943, 0.7369, 0.8882, 0.0921, 0.6182],
+        'RHIS-min': [0.0000, 0.0145, 0.0023, 0.0014, 0.0272, 0.0015, 0.0102, 0.0541]
         }
 }
 
@@ -49,10 +49,13 @@ p_evol = {
 # 0.0523 -> p-value with N - 2 observations
 # 0.0014 -> p-value with N - 3 observations
 # 0.0272 -> p-value with N - 4 observations
-# 0.0541 -> p-value with N - 5 observations (10 most recent values)
+# 0.0015 -> p-value with N - 5 observations
+# 0.0883 -> p-value with N - 6 observations
+# 0.0541 -> p-value with N - 7 observations (8 most recent values)
+# RHIS-min -> the minimum p-value at each time step
 
 idxs = {
-    'series_0': (5, 15)
+    'flows': (5, 15)
     }
 
 # 5  -> index of the first observation in the RHIS-compliant stretch
@@ -61,7 +64,7 @@ idxs = {
 
 Reading the RHIS-min values from left to right, we can see how the series becomes RHIS-compliant as the window gets shorter. With (\alpha = 0.05), the first window that passes all four tests is the one containing the 10 most recent observations, where RHIS-min = 0.0541.
 
-Therefore, the RHIS-compliant stretch starts at index 5 and ends at index 15 (exclusive), corresponding to the last 10 observations of the series.
+Therefore, the RHIS-compliant stretch starts at index 5 and ends at index 15 (exclusive), corresponding to the last 8 observations of the series.
 
 ## The Nile example
 
@@ -73,7 +76,7 @@ The drop was mainly climatic: the summer monsoons over the Ethiopian highlands, 
 
 ![Nile](/assets/RHIS%20flow.PNG)
 
-This figure shows the results of the **rhis-ts** package on the Nile series. **Top:** the full annual flow series together with the RHIS-compliant stretch, `flow_repr` (1896–1970). **Bottom:** the evolution of the four RHIS p-values. Reading from left to right, the first point comes from the tests applied to the full series; each following point re-runs the tests on the series from that time step onward, so the last point is the test on the most recent 10 values. Under RHIS-min, all p-values start below alpha, and homogeneity and stationarity stop being rejected around 1885. Independence, however, keeps being rejected until 1896, when all four hypotheses are finally non-rejected. The stretch from 1896 to 1970 is therefore the most recent period in which all four hypotheses hold — a single population that can be safely used for frequency analysis, matching the changepoint reported by Cobb (1978) and the climatic explanation of Eltahir (1996).
+This figure shows the results of the **rhis-ts** package on the Nile series. **Top:** the full annual flow series together with the RHIS-compliant stretch, `flow_repr` (1896–1970). **Bottom:** the evolution of the four RHIS p-values. Reading from left to right, the first point comes from the tests applied to the full series; each following point re-runs the tests on the series from that time step onward, so the last point is the test on the most recent 8 values. Under RHIS-min, all p-values start below alpha, and homogeneity and stationarity stop being rejected around 1885. Independence, however, keeps being rejected until 1896, when all four hypotheses are finally non-rejected. The stretch from 1896 to 1970 is therefore the most recent period in which all four hypotheses hold — a single population that can be safely used for frequency analysis, matching the changepoint reported by Cobb (1978) and the climatic explanation of Eltahir (1996).
 
 Data source: [Flow of the River Nile](https://www.kaggle.com/datasets/lsind18/flow-of-the-river-nile)
 
