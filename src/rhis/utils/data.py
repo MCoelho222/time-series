@@ -47,11 +47,6 @@ def split_into_parts(ts: TimeSeriesFlex, parts: int) -> list[TimeSeriesFlex]:
     return [ts[cut_index * i: cut_index * (i + 1)] for i in range(parts)]
 
 
-def slice_init(n: int) -> int:
-    limit = 100
-    return 10 if n > limit else 5
-
-
 def slices_to_evol(ts: TimeSeriesFlex, start: int) -> list[TimeSeriesFlex]:
     """
     Break a flat series into its suffix slices.

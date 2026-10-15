@@ -12,7 +12,7 @@ from rhis.hypothesis.homogeneity import mann_whitney
 from rhis.hypothesis.independence import wald_wolfowitz
 from rhis.hypothesis.randomness import wallis_moore
 from rhis.hypothesis.stationarity import mann_kendall
-from rhis.utils import clean_numeric_array, slice_init, slices_to_evol
+from rhis.utils import clean_numeric_array, slices_to_evol
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -20,8 +20,7 @@ if TYPE_CHECKING:
 
     from rhis.custom_types.data import SeriesKey, TimeSeriesFlex
 
-MIN_NUMERIC_VALUES = 10
-MIN_TS_LENGTH_FOR_RHIS = 5
+MIN_SERIES_LENGTH = 8
 DEFAULT_ALPHA = 0.05
 
 RHIS_HYPOTHESES = ('R', 'H', 'I', 'S')
@@ -116,7 +115,7 @@ class Rhis:
                 indexes stay relative to each original series.
 
                 Non-numeric entries are treated as missing and dropped
-                window by window; columns with fewer than 10 numeric values
+                window by window; columns with fewer than 8 numeric values
                 are ignored entirely.
         """
         normalized_df, series_lengths = _normalize_input(data)
@@ -127,16 +126,15 @@ class Rhis:
 
         for col in self.numeric_orig_df.columns:
             numeric_count = np.count_nonzero(np.isfinite(self.numeric_orig_df[col]))
-            if numeric_count < MIN_NUMERIC_VALUES and col not in cols_to_drop:
+            if numeric_count < MIN_SERIES_LENGTH and col not in cols_to_drop:
                 cols_to_drop.append(col)
 
         if len(cols_to_drop) > 0:
-            msg = f"Dropping columns with all NaN or fewer than {MIN_NUMERIC_VALUES} numeric values: {cols_to_drop}"
+            msg = f"Dropping columns with all NaN or fewer than {MIN_SERIES_LENGTH} numeric values: {cols_to_drop}"
             logger.debug(msg)
             self.numeric_orig_df = self.numeric_orig_df.drop(columns=cols_to_drop)
 
         self.alpha = DEFAULT_ALPHA
-        self.length_init_ts = slice_init(len(self.orig_df))
         self.repr_idxs: dict[SeriesKey, tuple[int, int]] | None = None
 
         self.pvalues: dict[SeriesKey, dict[str, list[float]]] = {}
@@ -158,7 +156,7 @@ class Rhis:
         for col in cols:
             if len(self.pvalues[col]['RHIS-min']) == 0:
                 ts = self.numeric_orig_df[col].iloc[:self.series_lengths[col]]
-                evol_dict = self._evol_dict_from_ts(ts, self.length_init_ts)
+                evol_dict = self._evol_dict_from_ts(ts)
                 self.pvalues[col] = self._add_rhis_min_to_evol(evol_dict)
 
         return {col: self.pvalues[col] for col in cols}
@@ -247,8 +245,8 @@ class Rhis:
 
 
     @staticmethod
-    def _evol_dict_from_ts(ts: Series, length_init_ts: int) -> dict[str, list[float]]:
-        slices = slices_to_evol(ts.to_numpy(), length_init_ts)
+    def _evol_dict_from_ts(ts: Series) -> dict[str, list[float]]:
+        slices = slices_to_evol(ts.to_numpy(), MIN_SERIES_LENGTH)
         evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
 
         for sli in slices:
@@ -258,7 +256,7 @@ class Rhis:
             evol['I'].append(rhis_dict['I'])
             evol['S'].append(rhis_dict['S'])
 
-        fill = np.full(length_init_ts - 1, np.nan)
+        fill = np.full(MIN_SERIES_LENGTH - 1, np.nan)
 
         for hyp, ps in evol.items():
             evol[hyp] = list(np.append(ps, fill))
@@ -276,7 +274,7 @@ class Rhis:
     @staticmethod
     def calculate_rhis(ts: TimeSeriesFlex) -> dict[str, float]:
         ts = clean_numeric_array(ts)
-        if len(ts) < MIN_TS_LENGTH_FOR_RHIS:
+        if len(ts) < MIN_SERIES_LENGTH:
             return {'R': np.nan, 'H': np.nan, 'I': np.nan, 'S': np.nan}
 
         result = {

@@ -4,13 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rhis.core import Rhis
+from rhis.core import MIN_SERIES_LENGTH, Rhis
 from rhis.hypothesis import wald_wolfowitz
 
 DEFAULT_ALPHA = 0.05
-SHORT_SERIES_LEN = 5
-LONG_SERIES_LEN = 101
-INITIAL_LEN_FOR_LONG_SERIES = 10
 
 MONTHLY_PERIOD_START = '2020-01-01'
 MONTHLY_PERIOD_END = '2026-01-01'
@@ -102,16 +99,6 @@ def test_constructor_sets_default_attributes() -> None:
         assert set(rhis.pvalues[col]) == {'R', 'H', 'I', 'S', 'RHIS-min'}
 
 
-def test_constructor_length_init_ts_for_short_series() -> None:
-    rhis = Rhis(_make_df(n_rows=SHORT_SERIES_LEN))
-    assert rhis.length_init_ts == SHORT_SERIES_LEN
-
-
-def test_constructor_length_init_ts_for_long_series() -> None:
-    rhis = Rhis(_make_df(n_rows=LONG_SERIES_LEN))
-    assert rhis.length_init_ts == INITIAL_LEN_FOR_LONG_SERIES
-
-
 def test_constructor_accepts_messy_monthly_df() -> None:
     df = _make_messy_monthly_df()
     rhis = Rhis(df)
@@ -135,7 +122,6 @@ def test_constructor_accepts_messy_monthly_df() -> None:
 
     rhis = Rhis(df)
     pd.testing.assert_frame_equal(rhis.orig_df, df)
-    assert rhis.length_init_ts == SHORT_SERIES_LEN
 
 
 def test_constructor_does_not_raise_for_sparse_numeric_column() -> None:
@@ -150,7 +136,6 @@ def test_constructor_accepts_mapping_of_sequences() -> None:
 
     assert list(rhis.orig_df.columns) == list(data)
     assert set(rhis.pvalues) == set(data)
-    assert rhis.length_init_ts == SHORT_SERIES_LEN
 
 
 def test_constructor_mapping_matches_equivalent_dataframe() -> None:
@@ -313,7 +298,7 @@ def test_build_rhis_evol_dict_shape_and_nan_tail(make_df) -> None:
         assert len(ps) == len(rhis.numeric_orig_df)
         assert len(ps) == len(rhis.orig_df)
         assert np.isfinite(ps[0])
-        assert np.isnan(ps[-(rhis.length_init_ts - 1):]).all()
+        assert np.isnan(ps[-(MIN_SERIES_LENGTH - 1):]).all()
     assert rhis.pvalues[col] == evol
 
 
@@ -341,8 +326,8 @@ def test_build_rhis_evol_dict_constant_series_yields_nan() -> None:
     trend_evol = rhis.build_rhis_evol_dict('trend')['trend']
 
     assert np.isnan(constant_evol['I']).all()
-    assert np.isfinite(trend_evol['I'][:-(rhis.length_init_ts - 1)]).all()
-    assert np.isnan(trend_evol['I'][-(rhis.length_init_ts - 1):]).all()
+    assert np.isfinite(trend_evol['I'][:-(MIN_SERIES_LENGTH - 1)]).all()
+    assert np.isnan(trend_evol['I'][-(MIN_SERIES_LENGTH - 1):]).all()
 
 
 def test_build_rhis_evol_dict_is_memoized() -> None:

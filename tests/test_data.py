@@ -5,12 +5,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from rhis.utils import slice_init, slices_to_evol, split_into_parts
+from rhis.utils import slices_to_evol, split_into_parts
 
-SLICE_INIT_MAX_SHORT_SIZE = 100
-SLICE_INIT_LONG_SIZE = 101
-SHORT_INIT_LEN = 5
-LONG_INIT_LEN = 10
 SPLIT_INTO_TWO = 2
 SPLIT_INTO_FOUR = 4
 
@@ -55,20 +51,6 @@ def test_split_into_parts_accepts_numpy_array() -> None:
     assert len(result) == SPLIT_INTO_TWO
     assert np.array_equal(result[0], np.array([1.0, 2.0]))
     assert np.array_equal(result[1], np.array([3.0, 4.0]))
-
-
-# =====================================================================
-# slice_init
-# =====================================================================
-
-
-def test_slice_init_uses_short_length_up_to_limit() -> None:
-    for size in [1, 50, SLICE_INIT_MAX_SHORT_SIZE]:
-        assert slice_init(size) == SHORT_INIT_LEN
-
-
-def test_slice_init_uses_long_length_above_limit() -> None:
-    assert slice_init(SLICE_INIT_LONG_SIZE) == LONG_INIT_LEN
 
 
 # =====================================================================

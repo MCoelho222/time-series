@@ -108,7 +108,7 @@ RHIS-TS takes a table of numbers in time order, oldest row first, one column per
 - a `pandas.DataFrame` (every row is a time step, so the row index must not be a MultiIndex; the columns may use a MultiIndex, in which case the series are keyed by the column-label tuples), or
 - a mapping (for example a `dict`) of series names to sequences of numbers, read positionally — a `pandas.Series` index is ignored, and series of different lengths are padded with NaN internally. The reported indexes are always relative to each original series, never to the padded table.
 
-**Each column needs at least 10 numeric values** to be considered. Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
+**Each column needs at least 8 numeric values** to be considered, and every stretch it tests is also at least 8 observations long. Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
 
 ### What the tests can and cannot tell you
 
