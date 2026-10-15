@@ -1,3 +1,4 @@
+build==1.6.1
 covdefaults==2.3.0
 mypy==2.3.1
 pandas-stubs==2.3.3.260113
@@ -6,3 +7,4 @@ pytest-cov==7.1.0
 ruff==0.16.8
 scipy-stubs==1.15.3.0
 tox==4.63.0
+twine==7.0.0

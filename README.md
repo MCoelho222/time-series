@@ -1,5 +1,10 @@
 # RHIS-TS
 
+[![CI](https://github.com/MCoelho222/time-series/actions/workflows/ci.yml/badge.svg)](https://github.com/MCoelho222/time-series/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/rhis-ts.svg)](https://pypi.org/project/rhis-ts/)
+[![Python versions](https://img.shields.io/pypi/pyversions/rhis-ts.svg)](https://pypi.org/project/rhis-ts/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## What is RHIS-TS?
 
 RHIS stands for **R**andomness, **H**omogeneity, **I**ndependence and **S**tationarity. TS stands for **T**ime **S**eries. These are the four basic assumptions a time series is expected to satisfy to be considered *statistically representative* (Naghettini, 2007; Coelho et al., 2017; Coelho et al., 2019). They underpin almost every frequency analysis, design flood or trend study: if these assumptions do not hold, the results may not reflect current conditions.
@@ -160,21 +165,23 @@ Wald, A., & Wolfowitz, J. (1943). [An exact test for randomness in the non-param
 ## Install and Run
 
 ```bash
-python -m venv .venv
-```
-
-```bash
-.venv/scripts/activate
-```
-
-```bash
-pip install -e .[dev]
+pip install rhis-ts
 ```
 
 To see an example:
 
 ```bash
 rhis-ts
+```
+
+To work on the source instead:
+
+```bash
+git clone https://github.com/MCoelho222/time-series.git
+cd time-series
+python -m venv .venv
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
+pip install -e .[dev]
 ```
 
 ## Using RHIS-TS
@@ -216,3 +223,7 @@ representative = df.iloc[start:end]
 ```
 
 If the DataFrame columns are a MultiIndex, the series keys are the column-label tuples (for example `("flow", "m3s")`), and you look them up with that tuple.
+
+## License
+
+Released under the [MIT License](LICENSE).
