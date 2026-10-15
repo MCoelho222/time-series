@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from rhis.hypothesis import runs_test, wallis_moore
+from rhis_ts.hypothesis import runs_test, wallis_moore
 
 P_HALF = 0.5
 TINY_P = 1e-3

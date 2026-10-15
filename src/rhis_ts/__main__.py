@@ -7,7 +7,7 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame
 
-from rhis.core import Rhis
+from rhis_ts.core import Rhis
 
 WIDTH = 78
 
@@ -21,7 +21,7 @@ def load_example_data() -> DataFrame:
     published in Cobb (1978), Table 1, page 249, and distributed as the
     R 'datasets::Nile' object (also available in statsmodels). The
     series has an apparent changepoint near 1898, widely used in
-    changepoint-detection literature, and is the reason the RHIS
+    changepoint-detection literature, and is the reason the RHIS-TS
     example recovers the post-1898 period as the representative slice.
 
     The record intentionally ends in 1970: it corresponds to Cobb's
@@ -33,7 +33,7 @@ def load_example_data() -> DataFrame:
     closed, the flow at Aswan is reservoir-regulated rather than natural
     river flow.
 
-    The values are bundled locally (as a CSV in src/rhis/data) so the
+    The values are bundled locally (as a CSV in src/rhis_ts/data) so the
     example is self-contained and reproducible without a network
     connection.
 
@@ -72,7 +72,7 @@ def main() -> None:  # noqa: PLR0915
 
     print()
     _ruler('*')
-    print('  RHIS - Randomness, Homogeneity, Independence and Stationarity')
+    print('  RHIS-TS - Randomness, Homogeneity, Independence and Stationarity')
     print('  A guided tour of the Nile')
     _ruler('*')
 
@@ -100,7 +100,7 @@ def main() -> None:  # noqa: PLR0915
     _say('If we average the whole record and call that "the normal Nile", the')
     _say('answer is meaningless - one world says ~1100, the other says ~700.')
     _say()
-    _say('RHIS looks for the most recent stretch of the series that behaves like')
+    _say('RHIS-TS looks for the most recent stretch of the series that behaves like')
     _say('a single, sane process, by running four everyday sanity checks on every')
     _say('stretch that ends at the latest year:')
     print()
@@ -109,7 +109,7 @@ def main() -> None:  # noqa: PLR0915
     print('    I - Independence  : is each year unrelated to the one before it?')
     print('    S - Stationarity  : no trend, no sudden change of level?')
     print()
-    _say('A stretch passes only when all four checks say "yes". RHIS then keeps')
+    _say('A stretch passes only when all four checks say "yes". RHIS-TS then keeps')
     _say('the longest stretch that passes, and sets everything else aside.')
 
     # ------------------------------------------------------------------
@@ -146,7 +146,7 @@ def main() -> None:  # noqa: PLR0915
     _say('In 1871 almost every check fails (H, I and S are essentially zero): the')
     _say('pre/post-changepoint mixture is not one world. The failures calm down')
     _say(f'as we move the starting year forward - until {break_year}, when all four checks')
-    _say('start passing. That break is exactly what RHIS is looking for.')
+    _say('start passing. That break is exactly what RHIS-TS is looking for.')
 
     # ------------------------------------------------------------------
     # 4. The representative series, as indexes
@@ -200,7 +200,7 @@ def main() -> None:  # noqa: PLR0915
     _say(f'And there it is: a hundred years of complicated history, and {kept} clean')
     _say('years emerge - exactly the period you can safely describe, model or')
     _say('forecast. The post-1890s "new Nile" that hydrologists talk about is the')
-    _say('one RHIS found by itself!')
+    _say('one RHIS-TS found by itself!')
     _ruler()
 
 

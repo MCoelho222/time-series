@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.stats as sts
 
-from rhis.custom_types import WaldWolfowitzResults
-from rhis.utils import ranks_with_ties_corrected, to_ranks
+from rhis_ts.custom_types import WaldWolfowitzResults
+from rhis_ts.utils import ranks_with_ties_corrected, to_ranks
 
 if TYPE_CHECKING:
-    from rhis.custom_types import TimeSeriesFlex
+    from rhis_ts.custom_types import TimeSeriesFlex
 
 MIN_SERIES_LENGTH = 3
 
@@ -56,7 +56,7 @@ def wald_wolfowitz(
 
     See Also
     --------
-        src/rhis/docs/hypothesis_tests/wald_wolfowitz.md
+        src/rhis_ts/docs/hypothesis_tests/wald_wolfowitz.md
             Full description of the statistic, its distribution, and the
             adaptations used here (circular closure, mean-centering, normal
             approximation, ranks and ties handling).

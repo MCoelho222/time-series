@@ -4,13 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rhis.core import Rhis
-from rhis.hypothesis import wald_wolfowitz
+from rhis_ts.core import MIN_SERIES_LENGTH, Rhis
+from rhis_ts.hypothesis import wald_wolfowitz
 
 DEFAULT_ALPHA = 0.05
-SHORT_SERIES_LEN = 5
-LONG_SERIES_LEN = 101
-INITIAL_LEN_FOR_LONG_SERIES = 10
 
 MONTHLY_PERIOD_START = '2020-01-01'
 MONTHLY_PERIOD_END = '2026-01-01'
@@ -55,23 +52,39 @@ def _make_messy_monthly_df() -> pd.DataFrame:
     return df
 
 
+def _make_mapping(n: int = 60) -> dict[str, list[float]]:
+    rng = np.random.default_rng(11)
+    return {
+        'alpha': list(rng.normal(10., 1., n)),
+        'beta': list(rng.normal(20., 2., n)),
+    }
+
+
+def _make_multiindex_columns_df() -> pd.DataFrame:
+    rng = np.random.default_rng(3)
+    columns = pd.MultiIndex.from_tuples([('flow', 'm3s'), ('rain', 'mm')])
+    values = np.column_stack([rng.normal(50., 3., 60), rng.normal(10., 1., 60)])
+    return pd.DataFrame(values, columns=columns)
+
+
 @pytest.mark.parametrize(
-    'invalid_df',
+    'invalid_input',
     [
         [1, 2, 3],
-        {'a': 1, 'b': 2},
+        (1, 2, 3),
         pd.Series([1, 2, 3]),
+        'not a table',
     ],
 )
-def test_constructor_raises_value_error_when_not_dataframe(invalid_df) -> None:
-    with pytest.raises(ValueError, match=r'non-MultiIndex pandas\.DataFrame'):
-        Rhis(invalid_df)
+def test_constructor_raises_value_error_for_unsupported_input(invalid_input) -> None:
+    with pytest.raises(ValueError, match=r'must be a pandas\.DataFrame'):
+        Rhis(invalid_input)
 
 
 def test_constructor_raises_value_error_when_multiindex() -> None:
     index = pd.MultiIndex.from_product([['a', 'b'], [1, 2]])
     df = pd.DataFrame(np.ones((4, 1)), index=index)
-    with pytest.raises(ValueError, match=r'non-MultiIndex pandas\.DataFrame'):
+    with pytest.raises(ValueError, match=r'must not use a MultiIndex'):
         Rhis(df)
 
 
@@ -84,16 +97,6 @@ def test_constructor_sets_default_attributes() -> None:
     assert set(rhis.pvalues) == set(df.columns)
     for col in df.columns:
         assert set(rhis.pvalues[col]) == {'R', 'H', 'I', 'S', 'RHIS-min'}
-
-
-def test_constructor_length_init_ts_for_short_series() -> None:
-    rhis = Rhis(_make_df(n_rows=SHORT_SERIES_LEN))
-    assert rhis.length_init_ts == SHORT_SERIES_LEN
-
-
-def test_constructor_length_init_ts_for_long_series() -> None:
-    rhis = Rhis(_make_df(n_rows=LONG_SERIES_LEN))
-    assert rhis.length_init_ts == INITIAL_LEN_FOR_LONG_SERIES
 
 
 def test_constructor_accepts_messy_monthly_df() -> None:
@@ -119,13 +122,126 @@ def test_constructor_accepts_messy_monthly_df() -> None:
 
     rhis = Rhis(df)
     pd.testing.assert_frame_equal(rhis.orig_df, df)
-    assert rhis.length_init_ts == SHORT_SERIES_LEN
 
 
 def test_constructor_does_not_raise_for_sparse_numeric_column() -> None:
     df = pd.DataFrame({'flow': ['<LD'] * SPARSE_TS_NON_NUMERIC + [1.0, 2.0, 3.0]})
     rhis = Rhis(df)
     assert len(rhis.orig_df) == SPARSE_TS_NON_NUMERIC + SPARSE_TS_NUMERIC
+
+
+def test_constructor_accepts_mapping_of_sequences() -> None:
+    data = _make_mapping()
+    rhis = Rhis(data)
+
+    assert list(rhis.orig_df.columns) == list(data)
+    assert set(rhis.pvalues) == set(data)
+
+
+def test_constructor_mapping_matches_equivalent_dataframe() -> None:
+    data = _make_mapping()
+
+    from_mapping = Rhis(data).build_rhis_evol_dict()
+    from_frame = Rhis(pd.DataFrame(data)).build_rhis_evol_dict()
+
+    assert set(from_mapping) == set(from_frame)
+    for col in from_mapping:
+        for hyp in ('R', 'H', 'I', 'S', 'RHIS-min'):
+            np.testing.assert_allclose(from_mapping[col][hyp], from_frame[col][hyp], equal_nan=True)
+
+
+def test_constructor_mapping_ragged_series_padded_with_nan() -> None:
+    long_series = [1.0] * 12 + [2.0]
+    short_series = [1.0] * 12
+    rhis = Rhis({'long': long_series, 'short': short_series})
+
+    assert len(rhis.orig_df) == len(long_series)
+    assert np.isnan(rhis.numeric_orig_df['short'].iloc[-1])
+    assert not np.isnan(rhis.numeric_orig_df['long'].iloc[-1])
+
+
+def test_build_rhis_evol_dict_uses_per_series_length_for_ragged_mapping() -> None:
+    rng = np.random.default_rng(11)
+    data = {
+        'long': list(rng.normal(10., 1., 30)),
+        'short': list(rng.normal(20., 2., 20)),
+    }
+    rhis = Rhis(data)
+
+    evolutions = rhis.build_rhis_evol_dict()
+
+    assert len(evolutions['long']['RHIS-min']) == len(data['long'])
+    assert len(evolutions['short']['RHIS-min']) == len(data['short'])
+
+
+def test_get_repr_idxs_stay_within_each_ragged_series_length() -> None:
+    rng = np.random.default_rng(11)
+    data = {
+        'alpha': list(rng.normal(10., 1., 30)),
+        'beta': list(rng.normal(20., 2., 20)),
+    }
+    rhis = Rhis(data)
+
+    idxs = rhis.get_repr_idxs()
+
+    assert idxs['alpha'][1] == len(data['alpha'])
+    assert idxs['beta'] == (0, len(data['beta']))
+    for col, (start, end) in idxs.items():
+        assert 0 <= start <= end <= rhis.series_lengths[col]
+
+
+def test_constructor_mapping_values_are_read_positionally() -> None:
+    left = pd.Series([1.0] * 60, index=range(100, 160))
+    right = pd.Series([2.0] * 60, index=range(500, 560))
+
+    rhis = Rhis({'left': left, 'right': right})
+
+    assert list(rhis.orig_df.index) == list(range(60))
+
+
+@pytest.mark.parametrize(
+    'invalid_mapping',
+    [
+        {'a': 1, 'b': 2},
+        {'a': 1.0},
+        {'a': 'text'},
+    ],
+)
+def test_constructor_rejects_scalar_mapping_values(invalid_mapping) -> None:
+    with pytest.raises(ValueError, match=r'not a scalar'):
+        Rhis(invalid_mapping)
+
+
+def test_constructor_rejects_empty_mapping() -> None:
+    with pytest.raises(ValueError, match=r'at least one series'):
+        Rhis({})
+
+
+def test_constructor_accepts_multiindex_columns() -> None:
+    df = _make_multiindex_columns_df()
+    rhis = Rhis(df)
+
+    assert isinstance(rhis.orig_df.columns, pd.MultiIndex)
+    assert set(rhis.pvalues) == set(df.columns)
+
+
+def test_multiindex_columns_results_are_keyed_by_column_tuples() -> None:
+    df = _make_multiindex_columns_df()
+    rhis = Rhis(df)
+
+    evolutions = rhis.build_rhis_evol_dict()
+    repr_idxs = rhis.get_repr_idxs()
+
+    assert set(evolutions) == set(df.columns)
+    assert set(repr_idxs) == set(df.columns)
+    assert all(isinstance(key, tuple) for key in evolutions)
+    assert rhis.build_rhis_evol_dict(('flow', 'm3s')) == {('flow', 'm3s'): evolutions[('flow', 'm3s')]}
+
+
+def test_build_rhis_evol_dict_rejects_unknown_ts_name() -> None:
+    rhis = Rhis(_make_df())
+    with pytest.raises(ValueError, match=r'is not a known series name'):
+        rhis.build_rhis_evol_dict('nonexistent')
 
 
 def test_calculate_rhis_returns_four_p_values() -> None:
@@ -182,7 +298,7 @@ def test_build_rhis_evol_dict_shape_and_nan_tail(make_df) -> None:
         assert len(ps) == len(rhis.numeric_orig_df)
         assert len(ps) == len(rhis.orig_df)
         assert np.isfinite(ps[0])
-        assert np.isnan(ps[-(rhis.length_init_ts - 1):]).all()
+        assert np.isnan(ps[-(MIN_SERIES_LENGTH - 1):]).all()
     assert rhis.pvalues[col] == evol
 
 
@@ -210,8 +326,8 @@ def test_build_rhis_evol_dict_constant_series_yields_nan() -> None:
     trend_evol = rhis.build_rhis_evol_dict('trend')['trend']
 
     assert np.isnan(constant_evol['I']).all()
-    assert np.isfinite(trend_evol['I'][:-(rhis.length_init_ts - 1)]).all()
-    assert np.isnan(trend_evol['I'][-(rhis.length_init_ts - 1):]).all()
+    assert np.isfinite(trend_evol['I'][:-(MIN_SERIES_LENGTH - 1)]).all()
+    assert np.isnan(trend_evol['I'][-(MIN_SERIES_LENGTH - 1):]).all()
 
 
 def test_build_rhis_evol_dict_is_memoized() -> None:

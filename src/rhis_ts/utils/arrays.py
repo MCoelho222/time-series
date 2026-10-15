@@ -9,7 +9,7 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-    from rhis.custom_types import TimeSeriesFlex
+    from rhis_ts.custom_types import TimeSeriesFlex
 
 
 def clean_numeric_array(values: TimeSeriesFlex) -> NDArray[np.float64]:

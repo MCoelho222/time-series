@@ -15,5 +15,6 @@ example_notebooks/
 hypothesis_testing_plots/
 rhis_plots/
 *.PNG
+!RHIS flow.PNG
 deprecated/
 plotting/

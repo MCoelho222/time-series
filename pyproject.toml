@@ -1,15 +1,33 @@
 [project]
-name = "rhis"
-description = "Methods for representativeness verification in times series analyses"
+name = "rhis-ts"
+description = "Methods for representativeness verification in time series analyses"
 authors = [{name = "Marcelo Coelho", email = "mcoelho2011@hotmail.com"}]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+keywords = [
+  "time series",
+  "stationarity",
+  "homogeneity",
+  "independence",
+  "randomness",
+  "non-parametric",
+  "hydrology",
+  "frequency analysis",
+]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Hydrology",
+  "Topic :: Scientific/Engineering :: Mathematics",
 ]
 dynamic = [
   "dependencies",
@@ -18,29 +36,38 @@ dynamic = [
   "version",
 ]
 
+[project.urls]
+Homepage = "https://github.com/MCoelho222/time-series"
+Repository = "https://github.com/MCoelho222/time-series"
+Issues = "https://github.com/MCoelho222/time-series/issues"
+Changelog = "https://github.com/MCoelho222/time-series/blob/master/CHANGELOG.md"
+
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "setuptools>=61.2",
+  "setuptools>=77",
 ]
 
 [tool.setuptools]
-  zip-safe = true
   include-package-data = false
+
+  [tool.setuptools.package-data]
+    rhis_ts = [
+      "data/*.csv",
+      "docs/**/*.md",
+      "py.typed",
+    ]
 
   [tool.setuptools.dynamic]
     dependencies = {file = ["requirements/requirements.txt"]}
-    version = {attr = "rhis.__version__"}
+    version = {attr = "rhis_ts.__version__"}
     readme = {file = ["README.md"], content-type = "text/markdown"}
 
   [tool.setuptools.dynamic.optional-dependencies]
     dev = {file = "requirements/requirements-dev.txt"}
 
-[tool.distutils.bdist_wheel]
-  universal = true
-
 [project.scripts]
-rhis = "rhis:__main__.main"
+rhis-ts = "rhis_ts:__main__.main"
 
 [tool.ruff]
   line-length = 128
@@ -111,7 +138,7 @@ rhis = "rhis:__main__.main"
     skip-magic-trailing-comma = false
 
   [tool.ruff.lint.isort]
-    known-first-party = ["rhis", "tests", "testing"]
+    known-first-party = ["rhis_ts", "tests", "testing"]
     split-on-trailing-comma = true
     required-imports = ["from __future__ import annotations"]
 
@@ -135,7 +162,7 @@ rhis = "rhis:__main__.main"
   fail_under = 90
 
 [tool.coverage.run]
-  source = ["rhis"]
+  source = ["rhis_ts"]
   plugins = ["covdefaults"]
 
 [tool.mypy]

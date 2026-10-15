@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rhis.utils import clean_numeric_array
+from rhis_ts.utils import clean_numeric_array
 
 # =====================================================================
 # clean_numeric_array

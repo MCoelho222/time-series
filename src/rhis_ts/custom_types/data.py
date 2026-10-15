@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TypedDict
+from typing import TypeAlias, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
 
 TimeSeriesFlex = Sequence[int | float] | NDArray[np.int64 | np.float64]
+
+SeriesKey: TypeAlias = str | tuple[str, ...]
 
 
 class TiesData(TypedDict):

@@ -7,7 +7,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
 
-    from rhis.custom_types import TimeSeriesFlex
+    from rhis_ts.custom_types import TimeSeriesFlex
 
 
 def split_into_parts(ts: TimeSeriesFlex, parts: int) -> list[TimeSeriesFlex]:
@@ -45,11 +45,6 @@ def split_into_parts(ts: TimeSeriesFlex, parts: int) -> list[TimeSeriesFlex]:
         cut_index = int(cut_index)
 
     return [ts[cut_index * i: cut_index * (i + 1)] for i in range(parts)]
-
-
-def slice_init(n: int) -> int:
-    limit = 100
-    return 10 if n > limit else 5
 
 
 def slices_to_evol(ts: TimeSeriesFlex, start: int) -> list[TimeSeriesFlex]:
