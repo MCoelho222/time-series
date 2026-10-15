@@ -1,8 +1,8 @@
-# RHIS
+# RHIS-TS
 
-## What is RHIS?
+## What is RHIS-TS?
 
-RHIS stands for **R**andomness, **H**omogeneity, **I**ndependence and **S**tationarity. These are the four basic assumptions a time series is expected to satisfy to be considered *statistically representative* (Naghettini, 2007; Coelho et al., 2017; Coelho et al., 2019). They underpin almost every frequency analysis, design flood or trend study: if these assumptions do not hold, the results may not reflect current conditions.
+RHIS stands for **R**andomness, **H**omogeneity, **I**ndependence and **S**tationarity. TS stands for **T**ime **S**eries. These are the four basic assumptions a time series is expected to satisfy to be considered *statistically representative* (Naghettini, 2007; Coelho et al., 2017; Coelho et al., 2019). They underpin almost every frequency analysis, design flood or trend study: if these assumptions do not hold, the results may not reflect current conditions.
 
 Each assumption is checked with a well-known non-parametric test:
 
@@ -63,6 +63,20 @@ Reading the RHIS-min values from left to right, we can see how the series become
 
 Therefore, the RHIS-compliant stretch starts at index 5 and ends at index 15 (exclusive), corresponding to the last 10 observations of the series.
 
+## The Nile example
+
+The Nile dataset is the annual river flow measured at Aswan, Egypt, from 1871 to 1970 — 100 years in units of 10⁸ m³. Time-series analyses (going back to Cobb, 1978) find an abrupt changepoint around 1898: the mean annual flow fell from roughly 109 billion m³ (1871–1897) to about 86 billion m³ after the turn of the century. The series is a classic in statistics, econometrics, and data science — shipped as the `Nile` dataset in R and in Statsmodels — and is widely used for ARIMA modeling, structural-break detection, and general time-series work.
+
+The drop was mainly climatic: the summer monsoons over the Ethiopian highlands, which supply about 80% of the river's water, weakened when the tropical rain belt stopped shifting so far north, and an extreme El Niño (1896–1899) finished the job. The first Aswan Dam started that same year, but it was small, not yet finished, and could not affect water falling upstream in Ethiopia, so the 20–25% fall was natural. Eltahir (1996) confirmed the link statistically, matching Aswan records (1872–1972) with Pacific sea-surface temperatures: ENSO explained about 25% of the year-to-year variation. During El Niño, shifted atmospheric circulation brings less rain over the Ethiopian Highlands, so less water reaches the Blue Nile and flow downstream drops.
+
+### RHIS applied on Nile time series
+
+![Nile](/assets/RHIS%20flow.PNG)
+
+This figure shows the results of the **rhis-ts** package on the Nile series. **Top:** the full annual flow series together with the RHIS-compliant stretch, `flow_repr` (1896–1970). **Bottom:** the evolution of the four RHIS p-values. Reading from left to right, the first point comes from the tests applied to the full series; each following point re-runs the tests on the series from that time step onward, so the last point is the test on the most recent 10 values. Under RHIS-min, all p-values start below alpha, and homogeneity and stationarity stop being rejected around 1885. Independence, however, keeps being rejected until 1896, when all four hypotheses are finally non-rejected. The stretch from 1896 to 1970 is therefore the most recent period in which all four hypotheses hold — a single population that can be safely used for frequency analysis, matching the changepoint reported by Cobb (1978) and the climatic explanation of Eltahir (1996).
+
+Data source: [Flow of the River Nile](https://www.kaggle.com/datasets/lsind18/flow-of-the-river-nile)
+
 ## What do these tests actually test?
 
 Every test returns a **p-value**: the probability of seeing a pattern at least this strong if the assumption were really true. A small p-value is evidence against the assumption. In RHIS an assumption is rejected when its p-value falls below the significance level (alpha), which is 0.05 by default. Here is what each of the four tests looks at.
@@ -122,9 +136,13 @@ Coelho, M.; Fernandes, C. V. S.; Detzel, D. H. M.; Mannich, M. [Statistical vali
 
 Coelho, M.; Fernandes, C. V. S.; Detzel, D. H. M. [Uncertainty analysis in the detection of trends, cycles, and shifts in water resources time series](https://link.springer.com/article/10.1007/s11269-019-02210-1). Water Resources Management, v.27, p.1 - 16, 2019.
 
-HELSEL & HIRSCH (2002). [Techniques of Water Resources investigations fo the United States Geological Survey. Chapter 5 - Statistical Methods in Water Resources](https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf).
+Eltahir, A. B. E. [El Niño and the natural variability in the flow of the Nile River](https://web.mit.edu/people/eltahir/www/Publications_files/1996%20Eltahir%20flow%20Nile%20River%20WRR.pdf). Water Resources Research, Vol. 32, No. 1, Pages 131–137, January 1996.
 
-NAGHETTINI, M.; PINTO, E. J. A. Hidrologia e estatística. Geological Survey of Brazil. Belo Horizonte: CPRM, 2007.
+George W. Cobb. [The problem of the Nile: Conditional solution to a changepoint problem](https://doi.org/10.1093/biomet/65.2.243), Biometrika, Volume 65, Issue 2, August 1978, Pages 243–251.
+
+Helsel & Hirsch (2002). [Techniques of Water Resources investigations fo the United States Geological Survey. Chapter 5 - Statistical Methods in Water Resources](https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf).
+
+Naghettini, M.; Pinto, E. J. A. Hidrologia e estatística. Geological Survey of Brazil. Belo Horizonte: CPRM, 2007.
 
 Wald, A., & Wolfowitz, J. (1943). [An exact test for randomness in the non-parametric case based on serial correlation](https://projecteuclid.org/journalArticle/Download?urlId=10.1214%2Faoms%2F1177731358). Annals of Mathematical Statistics, 14(4), 378-388.
 
