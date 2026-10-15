@@ -69,7 +69,7 @@ The Nile dataset is the annual river flow measured at Aswan, Egypt, from 1871 to
 
 The drop was mainly climatic: the summer monsoons over the Ethiopian highlands, which supply about 80% of the river's water, weakened when the tropical rain belt stopped shifting so far north, and an extreme El Niño (1896–1899) finished the job. The first Aswan Dam started that same year, but it was small, not yet finished, and could not affect water falling upstream in Ethiopia, so the 20–25% fall was natural. Eltahir (1996) confirmed the link statistically, matching Aswan records (1872–1972) with Pacific sea-surface temperatures: ENSO explained about 25% of the year-to-year variation. During El Niño, shifted atmospheric circulation brings less rain over the Ethiopian Highlands, so less water reaches the Blue Nile and flow downstream drops.
 
-### RHIS applied on Nile time series
+### RHIS-TS applied on Nile time series
 
 ![Nile](/assets/RHIS%20flow.PNG)
 
@@ -79,15 +79,15 @@ Data source: [Flow of the River Nile](https://www.kaggle.com/datasets/lsind18/fl
 
 ## What do these tests actually test?
 
-Every test returns a **p-value**: the probability of seeing a pattern at least this strong if the assumption were really true. A small p-value is evidence against the assumption. In RHIS an assumption is rejected when its p-value falls below the significance level (alpha), which is 0.05 by default. Here is what each of the four tests looks at.
+Every test returns a **p-value**: the probability of seeing a pattern at least this strong if the assumption were really true. A small p-value is evidence against the assumption. In RHIS-TS an assumption is rejected when its p-value falls below the significance level (alpha), which is 0.05 by default. Here is what each of the four tests looks at.
 
 ### Randomness
 
-A random series has no systematic order. The randomness test (Wallis-Moore) counts the "ups" and "downs" in the series: a random series changes direction often, a series with too few changes keeps moving the same way (trend-like), and one with too many changes keeps zig-zagging. Randomness is rejected when this pattern is statistically significant at the chosen significance level.
+A random series has no systematic order. The randomness test (Wallis-Moore) counts the "ups" and "downs" in the series: a random series changes direction often, a series with too few changes keeps moving the same way (trend-like), and one with too many changes keeps zig-zagging. Randomness is rejected when this pattern is statistically significant at the chosen significance level. Seasonality is a classic source of non-randomness in the "too many changes" direction: a seasonal series turns up and down on a fixed schedule, packing far more direction changes into the record than chance alone would produce, and the test flags that regular zig-zag as non-random.
 
 ### Homogeneity
 
-A homogeneous series behaves like a single population from beginning to end. The test (Mann-Whitney) splits the record into two halves and compares them. Homogeneity is rejected if one half is systematically larger or smaller than the other at the chosen significance level — a sign of a shift.
+A homogeneous series behaves like a single population from beginning to end. The test (Mann-Whitney) splits the record into two halves and compares them. Homogeneity is rejected if one half is systematically larger or smaller than the other at the chosen significance level — a sign of a shift. A gradual trend causes the same problem: it makes the second half systematically higher (or lower) than the first, so the two halves differ even though there is no abrupt break, and the result can look very similar to what the stationarity test (Mann-Kendall) reports.
 
 ### Independence
 
@@ -99,16 +99,16 @@ A stationary series keeps its statistical behaviour over time and, in particular
 
 ## What to keep in mind
 
-RHIS gives you statistics; you bring the context. A few things are worth knowing before you act on a result.
+RHIS-TS gives you statistics; you bring the context. A few things are worth knowing before you act on a result.
 
 ### What kind of series it works with
 
-RHIS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. You can hand it that table in either of two ways:
+RHIS-TS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. You can hand it that table in either of two ways:
 
 - a `pandas.DataFrame` (every row is a time step, so the row index must not be a MultiIndex; the columns may use a MultiIndex, in which case the series are keyed by the column-label tuples), or
 - a mapping (for example a `dict`) of series names to sequences of numbers, read positionally — a `pandas.Series` index is ignored, and series of different lengths are padded with NaN internally. The reported indexes are always relative to each original series, never to the padded table.
 
-Each column needs at least 10 numeric values to be considered, and every window it tests needs a handful of values (5, or 10 for long records). Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
+**Each column needs at least 10 numeric values** to be considered. Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
 
 ### What the tests can and cannot tell you
 
@@ -116,9 +116,9 @@ These are statistical tests, not detectors of causes. A "fail" tells you a patte
 
 ### Outliers
 
-An outlier is a value far from the rest — sometimes real (a record flood) and sometimes a mistake (a typo, a sensor glitch, a unit mix-up). These tests work with the order, ranks, or signs of the values rather than their size, so they tolerate outliers better than a simple average. Even so, one extreme value (say 999.9 instead of 99.9) can still shift the rankings and change the chosen period. RHIS does not detect or remove outliers: look at them first, fix genuine data-entry errors, and use judgement for the real extremes.
+An outlier is a value far from the rest — sometimes real (a record flood) and sometimes a mistake (a typo, a sensor glitch, a unit mix-up). These tests work with the order, ranks, or signs of the values rather than their size, so they tolerate outliers better than a simple average. Even so, one extreme value (say 999.9 instead of 99.9) can still shift the rankings and change the chosen period. RHIS-TS does not detect or remove outliers: look at them first, fix genuine data-entry errors, and use judgement for the real extremes.
 
-### RHIS cannot see your time step
+### RHIS-TS cannot see your time step
 
 The tests read a sequence of numbers, not dates. They do not know whether your data are annual, monthly, daily, or irregular, and they do not see gaps. Three practical consequences:
 
