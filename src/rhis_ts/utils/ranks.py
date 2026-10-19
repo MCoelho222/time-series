@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, overload
 
 import numpy as np
+from scipy.stats import rankdata
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -71,7 +72,7 @@ def ranks_with_ties_corrected(
     ...
 
 
-def ranks_with_ties_corrected(  # noqa: C901
+def ranks_with_ties_corrected(
     ts: TimeSeriesFlex,
     *,
     ties_data: bool = False,
@@ -93,47 +94,28 @@ def ranks_with_ties_corrected(  # noqa: C901
         information about ties, including the list with ranks. The
         ranks will be in the original time series order.
     """
-    ranks = np.array(to_ranks(ts), dtype=float)
+    arr = np.asarray(ts, dtype=float)
+    ranks = np.asarray(rankdata(arr, method='average'), dtype=float)
 
-    ts_sorted = np.sort(ts)
-    ties_index = []
-    m = 0
-    while m < len(ts) - 1:
-        if m == 0:
-            tie_ind = get_ties_index(ts, m)
-            if len(tie_ind) > 0:
-                ties_index.append(tie_ind)
-        if m > 0:
-            if ts_sorted[m] == ts_sorted[m + 1]:
-                if ts_sorted[m] != ts_sorted[m - 1]:
-                    new_index = m
-                    new_tie_ind = get_ties_index(ts, new_index)
-                    ties_index.append(new_tie_ind)
-        m += 1
+    if not ties_data:
+        return ranks
 
-    if len(ties_index) > 0:
+    _, counts = np.unique(arr, return_counts=True)
+    starts = np.cumsum(counts) - counts + 1
+    ties_index = [
+        list(range(int(start), int(start + count)))
+        for start, count in zip(starts, counts, strict=True)
+        if count > 1
+    ]
 
-        for index in ties_index:
-            mean = np.mean(index)
-            for ind in index:
-                ranks[ranks == ind] = mean
+    ties_result: TiesData = {
+        'corrected_ranks': ranks,
+        'tied_ranks': ties_index, # The indexes where ties are present
+        'ties_count': int(counts.size), # The number of ties groups
+        'ties_groups_count': counts.tolist(), # The number of elements in each tie group
+    }
 
-    if ties_data:
-        ties_group_counts = []
-        unique_ranks = np.unique(ranks)
-        for rank in unique_ranks:
-            count = np.count_nonzero(np.array(ranks) == rank)
-            ties_group_counts.append(int(count) if count > 0 else 1)
-
-        ties_result: TiesData = {
-            'corrected_ranks': ranks,
-            'tied_ranks': ties_index, # The indexes where ties are present
-            'ties_count': len(ties_group_counts), # The number of ties groups
-            'ties_groups_count': ties_group_counts, # The number of elements in each tie group
-        }
-
-        return ties_result
-    return ranks
+    return ties_result
 
 
 def to_ranks(ts: TimeSeriesFlex) -> list[int | float]:
@@ -149,19 +131,7 @@ def to_ranks(ts: TimeSeriesFlex) -> list[int | float]:
     ------
         A list with the original data replaced by their ranks.
     """
-    ts_unique = np.unique(ts)
-    ts_sorted = np.sort(ts)
-    ranks_dict = {}
-    for el in ts_unique:
-        index = np.where(ts_sorted == el)[0]
-        ranks_dict[el] = list(index)
-
-    ranks = []
-    for el in np.array(ts):
-        rank = ranks_dict[el].pop(0)
-        ranks.append(rank + 1)
-
-    return ranks
+    return rankdata(np.asarray(ts), method='ordinal').astype(int).tolist()
 
 if __name__ == "__main__":
     ts1 = [10, 3, 3.5, 4., 4., 5., 22.5]

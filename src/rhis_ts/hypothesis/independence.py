@@ -67,7 +67,7 @@ def wald_wolfowitz(
         non-parametric case based on serial correlation. Annals of Mathematical
         Statistics, 14(4), 378-388.
     """
-    arr = np.array(ts, dtype=float)
+    arr = np.asarray(ts, dtype=float)
     if not np.all(np.isfinite(arr)):
         msg = "The time series must contain only finite numeric values."
         raise ValueError(msg)
@@ -86,12 +86,13 @@ def wald_wolfowitz(
 
     avg = np.mean(arr)
     arr = arr - avg
-    n = len(arr)
+    n = arr.size
 
-    r = np.sum(arr[:-1] * arr[1:]) + arr[0] * arr[-1]
+    r = np.dot(arr[:-1], arr[1:]) + arr[0] * arr[-1]
 
-    s2 = float(np.sum(arr ** 2))
-    s4 = float(np.sum(arr ** 4))
+    arr2 = arr * arr
+    s2 = float(np.dot(arr, arr))
+    s4 = float(np.dot(arr2, arr2))
 
     e_r = - s2 / (n - 1)
 

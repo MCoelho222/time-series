@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from rhis_ts.custom_types import TimeSeriesFlex
 
 
-def runs_test(  # noqa: C901
+def runs_test(
         ts: TimeSeriesFlex,
         alternative: str = 'two-sided',
         *,
@@ -67,49 +67,20 @@ def runs_test(  # noqa: C901
             Full description of the statistic, its distribution, and the
             interpretation of the results.
     """
-    ts = np.array(ts) if isinstance(ts, list) else ts
-
-    if np.all(ts == ts[0]):
+    arr = np.asarray(ts, dtype=float)
+    if np.all(arr == arr[0]):
         return RunsTestResults(np.nan, np.nan, alternative)
 
-    median = np.median(np.array(ts))
-    up_runs_ones = []
-    down_runs_ones = []
-    signs = [] # +1 (higher than median); -1 (lower than median)
-    runs_per_group = []
-    for element in ts:
-        # Values equal to the median do not count
-        if element > median:
-            signs.append(1)
-        if element < median:
-            signs.append(-1)
+    median = np.median(arr)
+    signs = np.where(arr > median, 1, np.where(arr < median, -1, 0))
+    signs = signs[signs != 0]
 
-    if not signs:
+    if signs.size == 0:
         return RunsTestResults(0, 0.0, alternative)
 
-    for i in range(1, len(signs)):
-        el = signs[i]
-        next_el = signs[i - 1]
-        if el < next_el:
-            up_runs_ones.append(1)
-        if el > next_el:
-            down_runs_ones.append(1)
-
-    if signs[0] > 0:
-        runs_per_group.append(np.sum(up_runs_ones))
-        runs_per_group.append(np.sum(down_runs_ones) + 1)
-    if signs[0] < 0:
-        runs_per_group.append(np.sum(up_runs_ones) + 1)
-        runs_per_group.append(np.sum(down_runs_ones))
-
-    signs1 = np.array(signs)
-
-    positives = signs1[signs1 > 0]
-    negatives = signs1[signs1 < 0]
-
-    n1 = float(len(positives))
-    n2 = float(len(negatives))
-    stat = float(np.sum(runs_per_group))
+    n1 = float(np.count_nonzero(signs > 0))
+    n2 = float(signs.size - n1)
+    stat = float(1 + np.count_nonzero(signs[1:] != signs[:-1]))
 
     try:
         stat_mean = (((2. * n1 * n2) / (n1 + n2)) + 1.)
@@ -176,59 +147,21 @@ def wallis_moore(
             Full description of the phase statistic, its distribution,
             and the interpretation of the results.
     """
-    ts_arr = np.array(ts)
+    ts_arr = np.asarray(ts, dtype=float)
     if np.all(ts_arr == ts_arr[0]):
         return WallisMooreResults(np.nan, np.nan, alternative)
 
-    #Group 1 (pluses for zeros)
-    signs1 = []
-    pluses1 = []
-    minuses1 = []
-    up_runs_ones = []
+    diffs = np.diff(ts_arr)
 
-    #Group 2 (minuses for zeros)
-    signs2 = []
-    pluses2 = []
-    minuses2 = []
-    down_runs_ones = []
+    signs1 = np.where(diffs >= 0, 1, -1)
+    signs2 = np.where(diffs > 0, 1, -1)
 
-    for i in range(1, len(ts)):
-
-        if ts[i] < ts[i - 1]:
-            signs1.append(-1)
-            signs2.append(-1)
-            minuses1.append(1)
-            minuses2.append(1)
-
-        if ts[i] > ts[i - 1]:
-            signs1.append(1)
-            signs2.append(1)
-            pluses1.append(1)
-            pluses2.append(1)
-
-        if ts[i] == ts[i - 1]:
-            signs1.append(1)
-            signs2.append(-1)
-            pluses1.append(1)
-            minuses2.append(1)
-
-    for i in range(1, len(ts) - 1):
-        if signs1[i] != signs1[i - 1]:
-            up_runs_ones.append(1)
-        if signs2[i] != signs2[i - 1]:
-            down_runs_ones.append(1)
-
-    #Group 1
-    up_runs_ones_arr = np.array(up_runs_ones)
-    up_runs_ones_sum = np.sum(up_runs_ones_arr) + 1
-
-    #Group 2
-    down_runs_ones_arr = np.array(down_runs_ones)
-    down_runs_ones_sum = np.sum(down_runs_ones_arr) + 1
+    up_runs_ones_sum = np.count_nonzero(signs1[1:] != signs1[:-1]) + 1
+    down_runs_ones_sum = np.count_nonzero(signs2[1:] != signs2[:-1]) + 1
 
     runs = (up_runs_ones_sum + down_runs_ones_sum) / 2.
 
-    n = len(ts)
+    n = ts_arr.size
     expected_runs = (2. * n - 1.) / 3.
     sigma = ((16. * n - 29.) / 90.) ** 0.5
     z = (runs - expected_runs) / sigma

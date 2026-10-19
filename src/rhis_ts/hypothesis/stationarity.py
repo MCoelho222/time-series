@@ -3,12 +3,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+import scipy.stats as sts
 
 from rhis_ts.custom_types import MannKendallResults
-from rhis_ts.utils import p_value_normal_directional, ranks_with_ties_corrected
+from rhis_ts.utils import p_value_normal_directional
 
 if TYPE_CHECKING:
     from rhis_ts.custom_types import TimeSeriesFlex
+
+MIN_TAU_LENGTH = 3
+MIN_PAIR_LENGTH = 2
 
 
 def mann_kendall(
@@ -70,24 +74,21 @@ def mann_kendall(
             Full description of the statistic, its distribution, and the
             interpretation of the results.
     """
-    n = len(ts)
-    arr = np.array(ts)
+    arr = np.asarray(ts, dtype=float)
+    n = arr.size
     if np.all(arr == arr[0]):
             return MannKendallResults(np.nan, np.nan, alternative)
 
-    signs = []
-    for i in range(n - 1):
-        s = arr[i + 1] - arr[:i + 1]
-        signs.extend(np.sign(s))
+    _, counts = np.unique(arr, return_counts=True)
+    ties_factor = float(np.sum(counts * (counts - 1) * (2 * counts + 5)))
 
-    signs_array = np.array(signs)
-    test_s = float(len(signs_array[signs_array > 0]) - len(signs_array[signs_array < 0]))
-
-    ties_data = ranks_with_ties_corrected(arr, ties_data=True)['ties_groups_count']
-
-    ties_factor = 0
-    for value in ties_data:
-        ties_factor += (value * (value - 1) * (2 * value + 5))
+    if n < MIN_TAU_LENGTH:
+        test_s = 0.0 if n < MIN_PAIR_LENGTH else float(np.sign(arr[1] - arr[0]))
+    else:
+        n0 = n * (n - 1) / 2
+        ties_pairs = float(np.sum(counts * (counts - 1)) / 2)
+        tau = sts.kendalltau(np.arange(n), arr, method='asymptotic').statistic
+        test_s = float(round(tau * np.sqrt((n0 - ties_pairs) * n0)))
 
     sigma = ((1 / 18) * ((n * (n - 1.) * (2. * n + 5.)) - ties_factor)) ** 0.5
 

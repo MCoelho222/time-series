@@ -293,7 +293,7 @@ class Rhis:
             exist_cols = list(self.numeric_orig_df.columns)
             msg = f"{ts_name} is not one the existent columns ({exist_cols})."
             raise ValueError(msg)
-        
+
         alpha = self.alpha if alpha is None else alpha
         cols = list(self.numeric_orig_df.columns) if ts_name is None else [ts_name]
 
