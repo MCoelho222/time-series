@@ -16,7 +16,6 @@ from rhis_ts.hypothesis.stationarity import mann_kendall
 from rhis_ts.utils import clean_numeric_array, slices_to_evol
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
     from pandas import Series
 
     from rhis_ts.custom_types.data import SeriesKey, TimeSeriesFlex
@@ -289,95 +288,37 @@ class Rhis:
         ------
             ValueError
                 If 'ts_name' is not one of the known series names.
-
-        See Also
-        --------
-            Rhis.build_rhis_evol_dict : builds the p-value evolution used here.
-            Rhis._find_rhis_compliant_idxs : the slice-selection logic.
         """
+        if ts_name is not None and ts_name not in self.numeric_orig_df.columns:
+            exist_cols = list(self.numeric_orig_df.columns)
+            msg = f"{ts_name} is not one the existent columns ({exist_cols})."
+            raise ValueError(msg)
+        
         alpha = self.alpha if alpha is None else alpha
-        evols = self.build_rhis_evol_dict(ts_name)
+        cols = list(self.numeric_orig_df.columns) if ts_name is None else [ts_name]
 
-        self.repr_idxs = {
-            col: self._find_rhis_compliant_idxs(np.asarray(evol['RHIS-min'], dtype=float), alpha)
-            for col, evol in evols.items()
-        }
+        idxs = {}
+
+        for col in cols:
+            ts = self.numeric_orig_df[col].to_numpy()
+
+            is_compliant = False
+            i = 0
+            while not is_compliant and i <= (len(ts) - MIN_SERIES_LENGTH):
+                curr_ts = ts[i:]
+                rhis_min = np.min(list(Rhis.calculate_rhis(curr_ts).values()))
+                is_compliant = not np.isnan(rhis_min) and (rhis_min >= alpha)
+                if is_compliant:
+                    idxs[col] = (i, self.series_lengths[col])
+                    break
+                i += 1
+
+            if not is_compliant:
+                idxs[col] = (0, 0)
+
+        self.repr_idxs = idxs
 
         return self.repr_idxs
-
-
-    def _find_rhis_compliant_idxs(self, pvalue_ts: NDArray[np.float64], alpha: float) -> tuple[int, int]:
-        """
-        Find the most recent stretch of the time series that is
-        RHIS-compliant: the longest possible slice that still ends at
-        the latest observation.
-
-        The p-value series passed in is produced by the evolution
-        process triggered by Rhis.build_rhis_evol_dict(); see the
-        'pvalue_ts' description below for how to read it.
-
-        Parameters
-        ----------
-            pvalue_ts
-                The evolution of p-values computed by Rhis.build_rhis_evol_dict()
-                for a single time series (or for a derived statistic, like
-                'RHIS-min', computed over its R, H, I and S p-values). The
-                value at index i is the p-value of the slice that starts
-                at position i and runs to the very end of the series.
-                Index 0 tests the complete series. The trailing entries
-                are NaN because those slices are shorter than
-                MIN_SERIES_LENGTH; an earlier entry may be NaN too, when
-                the slice has enough observations but the tests cannot be
-                computed on it, e.g. every value in it is equal.
-
-            alpha
-                The significance level. A p-value greater than or equal
-                to alpha means that slice passed the tests (failed to
-                reject the null hypothesis), i.e., it is RHIS-compliant.
-
-        Returns
-        -------
-            A tuple (start, end) with indexes into the original series.
-            The slice running from 'start' to the end of the series is
-            the representative slice: the longest RHIS-compliant stretch
-            that ends at the most recent observation.
-        """
-        pvalue_ts_last = len(pvalue_ts)
-        if pvalue_ts_last == 0 or np.all(np.isnan(pvalue_ts)):
-            return (0, 0)
-
-        # The first entry tests the complete time series. When p >= alpha
-        # the whole series passed every RHIS test, so the representative
-        # slice is the entire series.
-        if pvalue_ts[0] >= alpha:
-            return (0, pvalue_ts_last)
-
-        # The complete series failed the tests, so the representative
-        # slice must be a slice that starts somewhere in the middle and
-        # runs to the end (i.e., it always ends at the most recent
-        # observation). These slices overlap in a simple way: the slice
-        # starting at position 1 contains the slice starting at position
-        # 2, which contains the one starting at 3, and so on. Each
-        # longer slice has already been tested and failed, so the FIRST
-        # slice that passes (p-value at or above alpha) is, by definition,
-        # the LONGEST one that passes and still reaches the most recent
-        # observation.
-        #
-        # NaN entries mark slices that could not be tested: shorter than
-        # MIN_SERIES_LENGTH, or long enough but degenerate (every value
-        # equal, for instance). They act as a stopping boundary, just like
-        # a passing p-value.
-        #
-        # For an evolution built by build_rhis_evol_dict(), pvalue_ts[0] is
-        # a real number here: were it NaN, the complete series itself would
-        # be untestable (too short, or all values equal), every slice would
-        # be NaN too, and the check above would already have returned. Such
-        # an evolution also always ends with MIN_SERIES_LENGTH - 1 NaN
-        # entries, so a stopping point after index 0 is guaranteed.
-        fails_to_reject = ~(pvalue_ts < alpha)  # p >= alpha, or NaN
-        idx = int(np.argmax(fails_to_reject))
-
-        return idx, pvalue_ts_last
 
 
     @staticmethod

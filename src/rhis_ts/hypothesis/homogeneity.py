@@ -80,7 +80,6 @@ def mann_whitney(
             Full description of the test statistic, its distribution,
             corrections, and the interpretation of the results.
     """
-
     if ts2 is None:
         if np.all(np.array(ts1) == np.array(ts1)[0]):
                 return MannWhitneyResults(np.nan, np.nan, alternative)

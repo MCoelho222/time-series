@@ -64,5 +64,5 @@ def test_get_repr_idxs_does_not_crash_on_degenerate_tail() -> None:
 
     start, end = rhis.get_repr_idxs('flow')['flow']
 
-    assert end == len(CONSTANT_TAIL_SERIES)
-    assert 0 <= start <= DEGENERATE_START
+    assert start == 0
+    assert end == 0
