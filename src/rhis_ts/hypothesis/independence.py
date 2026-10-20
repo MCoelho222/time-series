@@ -84,6 +84,30 @@ def wald_wolfowitz(
     if on_ranks and ties:
         arr = ranks_with_ties_corrected(arr)
 
+    r, p = _wald_wolfowitz_from_array(arr)
+
+    return WaldWolfowitzResults(r, p)
+
+
+def _wald_wolfowitz_from_array(arr: np.ndarray) -> tuple[float, float]:
+    """
+    Compute the Wald-Wolfowitz circular serial correlation statistic and p-value.
+
+    Parameters
+    ----------
+        arr
+            A finite, non-constant numeric array (already reduced to ranks when
+            the distribution-free variant is wanted).
+
+    Returns
+    -------
+        A (statistic, p-value) tuple.
+
+    Raises
+    ------
+        ValueError
+            If the variance of the serial correlation statistic is degenerate.
+    """
     avg = np.mean(arr)
     arr = arr - avg
     n = arr.size
@@ -109,7 +133,7 @@ def wald_wolfowitz(
     z = abs((r - e_r) / np.sqrt(var_r))
     p = 2 * (1 - sts.norm.cdf(z))
 
-    return WaldWolfowitzResults(r, p)
+    return r, p
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]

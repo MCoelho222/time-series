@@ -156,18 +156,45 @@ def wallis_moore(
     signs1 = np.where(diffs >= 0, 1, -1)
     signs2 = np.where(diffs > 0, 1, -1)
 
-    up_runs_ones_sum = np.count_nonzero(signs1[1:] != signs1[:-1]) + 1
-    down_runs_ones_sum = np.count_nonzero(signs2[1:] != signs2[:-1]) + 1
+    up_runs = int(np.count_nonzero(signs1[1:] != signs1[:-1])) + 1
+    down_runs = int(np.count_nonzero(signs2[1:] != signs2[:-1])) + 1
 
-    runs = (up_runs_ones_sum + down_runs_ones_sum) / 2.
+    runs, p_value = _wallis_moore_from_runs(ts_arr.size, up_runs, down_runs, alternative)
+    return WallisMooreResults(runs, p_value, alternative)
 
-    n = ts_arr.size
+
+def _wallis_moore_from_runs(
+        n: int,
+        up_runs: int,
+        down_runs: int,
+        alternative: str = 'two-sided',
+) -> tuple[float, float]:
+    """
+    Turn the two phase-run counts of the Wallis-Moore test into a p-value.
+
+    Parameters
+    ----------
+        n
+            Number of observations the two run counts were computed on.
+        up_runs
+            Number of phase runs when equal values are treated as rises.
+        down_runs
+            Number of phase runs when equal values are treated as falls.
+        alternative
+            One of 'two-sided', 'greater' or 'less'.
+
+    Returns
+    -------
+        A (statistic, p-value) tuple.
+    """
+    runs = (up_runs + down_runs) / 2.
+
     expected_runs = (2. * n - 1.) / 3.
     sigma = ((16. * n - 29.) / 90.) ** 0.5
     z = (runs - expected_runs) / sigma
 
     result = p_value_normal_directional(runs, expected_runs, z, alternative)
-    return WallisMooreResults(runs, result.p_value, alternative)
+    return runs, result.p_value
 
 
 if __name__ == "__main__":

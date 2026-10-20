@@ -90,6 +90,35 @@ def mann_kendall(
         tau = sts.kendalltau(np.arange(n), arr, method='asymptotic').statistic
         test_s = float(round(tau * np.sqrt((n0 - ties_pairs) * n0)))
 
+    p_value = _mann_kendall_from_s(n, test_s, ties_factor, alternative)
+
+    return MannKendallResults(test_s, p_value, alternative)
+
+
+def _mann_kendall_from_s(
+        n: int,
+        test_s: float,
+        ties_factor: float,
+        alternative: str = 'two-sided',
+) -> float:
+    """
+    Turn the Mann-Kendall trend statistic S into a p-value.
+
+    Parameters
+    ----------
+        n
+            Number of observations the statistic was computed on.
+        test_s
+            The Mann-Kendall statistic S.
+        ties_factor
+            sum over tie groups of t * (t - 1) * (2 * t + 5).
+        alternative
+            One of 'two-sided', 'greater' or 'less'.
+
+    Returns
+    -------
+        The p-value.
+    """
     sigma = ((1 / 18) * ((n * (n - 1.) * (2. * n + 5.)) - ties_factor)) ** 0.5
 
     condition_value = 0.
@@ -102,7 +131,7 @@ def mann_kendall(
 
     result = p_value_normal_directional(test_s, condition_value, z, alternative)
 
-    return MannKendallResults(test_s, result.p_value, alternative)
+    return result.p_value
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]

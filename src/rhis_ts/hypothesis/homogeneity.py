@@ -93,11 +93,47 @@ def mann_whitney(
     g2 = np.asarray(ts2, dtype=float)
 
     n1 = g1.size
-    n2 = g2.size
-    n = n1 + n2
 
     gs_concat = np.concatenate((g1, g2))
     ranks = sts.rankdata(gs_concat, method='average' if ties else 'ordinal')
+
+    stat, p = _mann_whitney_from_ranks(
+        ranks, n1, continuity=continuity, ties=ties, alternative=alternative,
+    )
+    return MannWhitneyResults(stat, p, alternative)
+
+
+def _mann_whitney_from_ranks(
+        ranks: np.ndarray,
+        n1: int,
+        *,
+        continuity: bool = True,
+        ties: bool = True,
+        alternative: str = 'two-sided',
+) -> tuple[float, float]:
+    """
+    Compute the Mann-Whitney U test from the ranks of both concatenated groups.
+
+    Parameters
+    ----------
+        ranks
+            Ranks of the concatenated groups, first group first. For the ties
+            correction to be meaningful they must be average ranks.
+        n1
+            Size of the first group.
+        continuity
+            If True, applies correction for continuity.
+        ties
+            If True, applies correction for ties.
+        alternative
+            One of 'two-sided', 'greater' or 'less'.
+
+    Returns
+    -------
+        A (statistic, p-value) tuple.
+    """
+    n2 = ranks.size - n1
+    n = n1 + n2
 
     rank_sum1 = ranks[:n1].sum()
     u1 = n1 * n2 + (n1 * (n1 + 1)) / 2 - rank_sum1
@@ -131,7 +167,7 @@ def mann_whitney(
 
     p = f * sts.norm.sf(z)
     p = min(1.0, p)
-    return MannWhitneyResults(stat, p, alternative)
+    return stat, p
 
 
 if __name__ == "__main__":

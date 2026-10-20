@@ -1,7 +1,7 @@
 """The Rhis class: run the four RHIS-TS tests and locate the representative stretch."""
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -9,11 +9,12 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame
 
+from rhis_ts.hypothesis.evolution import SuffixEvolution, suffix_pvalues
 from rhis_ts.hypothesis.homogeneity import mann_whitney
 from rhis_ts.hypothesis.independence import wald_wolfowitz
 from rhis_ts.hypothesis.randomness import wallis_moore
 from rhis_ts.hypothesis.stationarity import mann_kendall
-from rhis_ts.utils import clean_numeric_array, slices_to_evol
+from rhis_ts.utils import clean_numeric_array
 
 if TYPE_CHECKING:
     from pandas import Series
@@ -300,43 +301,94 @@ class Rhis:
         idxs = {}
 
         for col in cols:
-            ts = self.numeric_orig_df[col].to_numpy()
-
-            is_compliant = False
-            i = 0
-            while not is_compliant and i <= (len(ts) - MIN_SERIES_LENGTH):
-                curr_ts = ts[i:]
-                rhis_min = np.min(list(Rhis.calculate_rhis(curr_ts).values()))
-                is_compliant = not np.isnan(rhis_min) and (rhis_min >= alpha)
-                if is_compliant:
-                    idxs[col] = (i, self.series_lengths[col])
-                    break
-                i += 1
-
-            if not is_compliant:
-                idxs[col] = (0, 0)
+            raw = self.numeric_orig_df[col].to_numpy()
+            idxs[col] = self._repr_idx_from_raw(col, raw, alpha)
 
         self.repr_idxs = idxs
 
         return self.repr_idxs
 
+    def _repr_idx_from_raw(
+        self,
+        col: SeriesKey,
+        raw: np.ndarray,
+        alpha: float,
+    ) -> tuple[int, int]:
+        """
+        Find the representative stretch of one raw series, stopping early.
+
+        Reuses the cached p-value evolution when it is already computed and
+        otherwise tests suffixes lazily, so a series that is compliant on the
+        complete stretch never pays for the whole evolution.
+        """
+        cached = self.pvalues.get(col, {}).get('RHIS-min')
+        builder: Iterator[tuple[int, float]]
+        if cached is not None and len(cached) > 0:
+            builder = ((i, minute) for i, minute in enumerate(cached))
+        else:
+            finite_positions = np.flatnonzero(np.isfinite(raw))
+            values = raw[finite_positions]
+            evolution = SuffixEvolution(values, MIN_SERIES_LENGTH)
+            builder = self._raw_started_pvalues(raw, finite_positions, evolution)
+
+        limit = len(raw) - MIN_SERIES_LENGTH
+        for i, minute in builder:
+            if i > limit:
+                break
+            is_compliant = not np.isnan(minute) and (minute >= alpha)
+            if is_compliant:
+                return (i, self.series_lengths[col])
+
+        return (0, 0)
+
+    @staticmethod
+    def _raw_started_pvalues(
+        raw: np.ndarray,
+        finite_positions: np.ndarray,
+        evolution: SuffixEvolution,
+    ) -> Iterator[tuple[int, float]]:
+        """
+        Yield ``(raw_start, min p-value)`` per raw position, nondecreasing.
+
+        Several raw starts that only differ by leading non-finite values share
+        the same cleaned suffix, so their entry repeats until the next finite
+        observation begins a new suffix.
+        """
+        iterator = iter(evolution)
+        current = next(iterator, None)
+        for i in range(len(raw)):
+            start = int(np.searchsorted(finite_positions, i, side='left'))
+            while current is not None and current[0] < start:
+                current = next(iterator, None)
+            if current is not None and current[0] == start:
+                yield i, min(current[1].values())
+            else:
+                yield i, np.nan
+
 
     @staticmethod
     def _evol_dict_from_ts(ts: Series) -> dict[str, list[float]]:
-        slices = slices_to_evol(ts.to_numpy(), MIN_SERIES_LENGTH)
-        evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
+        """
+        Build the p-value evolution of one series from its cleaned suffixes.
 
-        for sli in slices:
-            rhis_dict = Rhis.calculate_rhis(sli)
-            evol['R'].append(rhis_dict['R'])
-            evol['H'].append(rhis_dict['H'])
-            evol['I'].append(rhis_dict['I'])
-            evol['S'].append(rhis_dict['S'])
+        Raw positions that share the same finite suffix (because they only
+        differ by leading non-finite values) reuse the very same p-values.
+        """
+        raw = np.asarray(ts.to_numpy(), dtype=float)
+        size = raw.size
+        finite_positions = np.flatnonzero(np.isfinite(raw))
+        values = raw[finite_positions]
+        cleaned = suffix_pvalues(values, MIN_SERIES_LENGTH)
 
-        fill = np.full(MIN_SERIES_LENGTH - 1, np.nan)
+        starts = np.searchsorted(finite_positions, np.arange(size), side='left')
+        testable = (np.arange(size) <= size - MIN_SERIES_LENGTH) \
+            & (starts <= values.size - MIN_SERIES_LENGTH)
 
-        for hyp, ps in evol.items():
-            evol[hyp] = list(np.append(ps, fill))
+        evol: dict[str, list[float]] = {}
+        for hyp, p_values in cleaned.items():
+            column = np.full(size, np.nan)
+            column[testable] = p_values[starts[testable]]
+            evol[hyp] = column.tolist()
 
         return evol
 
