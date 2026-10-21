@@ -12,7 +12,7 @@ build/
 htmlcov/
 dist/
 .pypirc
-example_notebooks/
+# example_notebooks/
 hypothesis_testing_plots/
 rhis_plots/
 *.PNG
