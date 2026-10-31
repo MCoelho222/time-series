@@ -33,7 +33,7 @@ def _is_series_like(values: object) -> bool:
 
 
 def _normalize_input(
-    data: DataFrame | Mapping[str, TimeSeriesFlex | Series],
+    data: DataFrame | Series | Mapping[str, TimeSeriesFlex | Series],
 ) -> tuple[DataFrame, dict[SeriesKey, int]]:
     """
     Normalize the accepted inputs into the DataFrame held internally.
@@ -43,12 +43,18 @@ def _normalize_input(
     indexes relative to each user series rather than to the padded frame.
 
     A DataFrame is used as is (its rows must not use a MultiIndex: each
-    row is a time step, and its columns may be a MultiIndex). A mapping of
+    row is a time step, and its columns may be a MultiIndex). A Series is
+    treated as a one-column DataFrame (Series.to_frame()): its index is
+    kept, its name becomes the series key (0 when unnamed), and its rows
+    must not use a MultiIndex either. A mapping of
     series names to value sequences is materialized into a DataFrame whose
     columns are the mapping keys and whose values are taken positionally
     (any index carried by a pandas Series is discarded). Ragged mappings
     are padded with NaN up to the longest series.
     """
+    if isinstance(data, pd.Series):
+        data = data.to_frame()
+
     if isinstance(data, DataFrame):
         if isinstance(data.index, pd.MultiIndex):
             msg = (
@@ -83,8 +89,9 @@ def _normalize_input(
         return DataFrame(series), lengths
 
     msg = (
-        "The parameter 'data' must be a pandas.DataFrame (whose rows must not "
-        "use a MultiIndex) or a mapping of series names to value sequences."
+        "The parameter 'data' must be a pandas.DataFrame or pandas.Series "
+        "(whose rows must not use a MultiIndex) or a mapping of series names "
+        "to value sequences."
     )
     logger.debug(msg)
     raise ValueError(msg)
@@ -114,15 +121,17 @@ class Rhis:
     Parameters
     ----------
         data
-            The time series to analyse, as a pandas.DataFrame or a mapping of
-            series names to value sequences. See Rhis.__init__ for the
+            The time series to analyse, as a pandas.DataFrame, a
+            pandas.Series or a mapping of series names to value
+            sequences. See Rhis.__init__ for the
             accepted inputs and how each series is interpreted.
 
     Attributes
     ----------
         orig_df
-            The input as a DataFrame; the mapping form is materialized and
-            ragged series are NaN-padded.
+            The input as a DataFrame; a Series becomes a one-column frame,
+            the mapping form is materialized and ragged series are
+            NaN-padded.
         numeric_orig_df
             orig_df coerced to numeric, with unusable columns dropped.
         series_lengths
@@ -141,20 +150,26 @@ class Rhis:
         Rhis.build_rhis_evol_dict, Rhis.get_repr_idxs : the public analysis.
     """
 
-    def __init__(self, data: DataFrame | Mapping[str, TimeSeriesFlex | Series]) -> None:
+    def __init__(self, data: DataFrame | Series | Mapping[str, TimeSeriesFlex | Series]) -> None:
         """
         Prepare a table of time series for RHIS analysis.
 
         Parameters
         ----------
             data
-                The time series to analyse, as either a pandas.DataFrame
-                or a mapping of series names to value sequences.
+                The time series to analyse, as a pandas.DataFrame, a
+                pandas.Series or a mapping of series names to value
+                sequences.
 
                 With a DataFrame, every column is a time series and every
                 row is a time step, so the row index must not be a
                 MultiIndex. The columns may use a MultiIndex; the series
                 keys then are the column-label tuples.
+
+                A pandas.Series is a single time series and is handled as
+                the one-column DataFrame Series.to_frame(): its index is
+                kept (and must not be a MultiIndex), and its name becomes
+                the series key, or 0 when the Series is unnamed.
 
                 With a mapping, every key is a series name and every value
                 is a sequence of numbers read in order (positional). The

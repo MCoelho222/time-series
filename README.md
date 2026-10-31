@@ -121,9 +121,10 @@ RHIS-TS gives you statistics; you bring the context. A few things are worth know
 
 ### What kind of series it works with
 
-RHIS-TS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. You can hand it that table in either of two ways:
+RHIS-TS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. You can hand it that table in any of three ways:
 
-- a `pandas.DataFrame` (every row is a time step, so the row index must not be a MultiIndex; the columns may use a MultiIndex, in which case the series are keyed by the column-label tuples), or
+- a `pandas.DataFrame` (every row is a time step, so the row index must not be a MultiIndex; the columns may use a MultiIndex, in which case the series are keyed by the column-label tuples),
+- a single `pandas.Series`, handled as the one-column DataFrame `series.to_frame()`: the series is keyed by its name (`0` if it has none), and its index must not be a MultiIndex either, or
 - a mapping (for example a `dict`) of series names to sequences of numbers, read positionally — a `pandas.Series` index is ignored, and series of different lengths are padded with NaN internally. The reported indexes are always relative to each original series, never to the padded table.
 
 **Each column needs at least 8 numeric values** to be considered, and every stretch it tests is also at least 8 observations long. Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
@@ -188,7 +189,7 @@ pip install -e .[dev]
 
 ## Using RHIS-TS
 
-Give `Rhis` either a `pandas.DataFrame` or a mapping of series names to value sequences.
+Give `Rhis` a `pandas.DataFrame`, a single `pandas.Series`, or a mapping of series names to value sequences.
 
 ```py
 import pandas as pd
@@ -199,6 +200,9 @@ df = pd.read_csv("data.csv")
 
 rhis = Rhis(df)
 
+# ... or from a single Series, keyed by its name ("flow" here).
+rhis = Rhis(df["flow"])
+
 # ... or from a dict of series name -> sequence of values.
 rhis = Rhis({
     "flow": [1100, 1160, 1160, 813, 1120, 1150],
@@ -206,7 +210,7 @@ rhis = Rhis({
 })
 ```
 
-Both forms expose the same API:
+All forms expose the same API:
 
 ```py
 # 1. The RHIS evolution, as a nested dict: one list of p-values per hypothesis

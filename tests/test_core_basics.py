@@ -72,7 +72,6 @@ def _make_multiindex_columns_df() -> pd.DataFrame:
     [
         [1, 2, 3],
         (1, 2, 3),
-        pd.Series([1, 2, 3]),
         'not a table',
     ],
 )
@@ -128,6 +127,53 @@ def test_constructor_does_not_raise_for_sparse_numeric_column() -> None:
     df = pd.DataFrame({'flow': ['<LD'] * SPARSE_TS_NON_NUMERIC + [1.0, 2.0, 3.0]})
     rhis = Rhis(df)
     assert len(rhis.orig_df) == SPARSE_TS_NON_NUMERIC + SPARSE_TS_NUMERIC
+
+
+def test_constructor_accepts_named_series() -> None:
+    series = _make_df(n_cols=1)['series_0'].rename('flow')
+    rhis = Rhis(series)
+
+    pd.testing.assert_frame_equal(rhis.orig_df, series.to_frame())
+    assert set(rhis.pvalues) == {'flow'}
+    assert rhis.series_lengths == {'flow': len(series)}
+
+
+def test_constructor_unnamed_series_is_keyed_by_zero() -> None:
+    series = pd.Series(_make_df(n_cols=1)['series_0'].to_numpy())
+    rhis = Rhis(series)
+
+    assert set(rhis.pvalues) == {0}
+    assert set(rhis.get_repr_idxs()) == {0}
+
+
+def test_constructor_series_keeps_its_index() -> None:
+    index = pd.date_range('2000-01-01', periods=60, freq='YS')
+    series = pd.Series(_make_df(n_cols=1)['series_0'].to_numpy(), index=index, name='flow')
+    rhis = Rhis(series)
+
+    pd.testing.assert_index_equal(rhis.orig_df.index, index)
+
+
+def test_constructor_series_matches_equivalent_dataframe() -> None:
+    df = _make_df(n_cols=1)
+    series = df['series_0']
+
+    from_series = Rhis(series)
+    from_frame = Rhis(df)
+
+    evol_series = from_series.build_rhis_evol_dict()
+    evol_frame = from_frame.build_rhis_evol_dict()
+    assert set(evol_series) == set(evol_frame) == {'series_0'}
+    for hyp in ('R', 'H', 'I', 'S', 'RHIS-min'):
+        np.testing.assert_allclose(evol_series['series_0'][hyp], evol_frame['series_0'][hyp], equal_nan=True)
+    assert from_series.get_repr_idxs() == from_frame.get_repr_idxs()
+
+
+def test_constructor_rejects_series_with_multiindex_rows() -> None:
+    index = pd.MultiIndex.from_product([['a', 'b'], range(10)])
+    series = pd.Series(np.arange(20, dtype=float), index=index)
+    with pytest.raises(ValueError, match=r'must not use a MultiIndex'):
+        Rhis(series)
 
 
 def test_constructor_accepts_mapping_of_sequences() -> None:
