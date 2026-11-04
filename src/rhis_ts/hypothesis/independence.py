@@ -67,7 +67,7 @@ def wald_wolfowitz(
         non-parametric case based on serial correlation. Annals of Mathematical
         Statistics, 14(4), 378-388.
     """
-    arr = np.array(ts, dtype=float)
+    arr = np.asarray(ts, dtype=float)
     if not np.all(np.isfinite(arr)):
         msg = "The time series must contain only finite numeric values."
         raise ValueError(msg)
@@ -84,14 +84,39 @@ def wald_wolfowitz(
     if on_ranks and ties:
         arr = ranks_with_ties_corrected(arr)
 
+    r, p = _wald_wolfowitz_from_array(arr)
+
+    return WaldWolfowitzResults(r, p)
+
+
+def _wald_wolfowitz_from_array(arr: np.ndarray) -> tuple[float, float]:
+    """
+    Compute the Wald-Wolfowitz circular serial correlation statistic and p-value.
+
+    Parameters
+    ----------
+        arr
+            A finite, non-constant numeric array (already reduced to ranks when
+            the distribution-free variant is wanted).
+
+    Returns
+    -------
+        A (statistic, p-value) tuple.
+
+    Raises
+    ------
+        ValueError
+            If the variance of the serial correlation statistic is degenerate.
+    """
     avg = np.mean(arr)
     arr = arr - avg
-    n = len(arr)
+    n = arr.size
 
-    r = np.sum(arr[:-1] * arr[1:]) + arr[0] * arr[-1]
+    r = np.dot(arr[:-1], arr[1:]) + arr[0] * arr[-1]
 
-    s2 = float(np.sum(arr ** 2))
-    s4 = float(np.sum(arr ** 4))
+    arr2 = arr * arr
+    s2 = float(np.dot(arr, arr))
+    s4 = float(np.dot(arr2, arr2))
 
     e_r = - s2 / (n - 1)
 
@@ -108,7 +133,7 @@ def wald_wolfowitz(
     z = abs((r - e_r) / np.sqrt(var_r))
     p = 2 * (1 - sts.norm.cdf(z))
 
-    return WaldWolfowitzResults(r, p)
+    return r, p
 
 if __name__ == "__main__":
     ts = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 5, 3, 10, 9, 9.5, 3.4, 5.7, 2.5, 7, 4.3, 11]

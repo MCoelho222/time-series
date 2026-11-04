@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats as sts
 
 from rhis_ts.custom_types import MannWhitneyResults
-from rhis_ts.utils import ranks_with_ties_corrected, split_into_parts
+from rhis_ts.utils import split_into_parts
 
 if TYPE_CHECKING:
     from rhis_ts.custom_types import TimeSeriesFlex
@@ -80,45 +80,72 @@ def mann_whitney(
             Full description of the test statistic, its distribution,
             corrections, and the interpretation of the results.
     """
-
     if ts2 is None:
-        if np.all(np.array(ts1) == np.array(ts1)[0]):
-                return MannWhitneyResults(np.nan, np.nan, alternative)
+        arr = np.asarray(ts1, dtype=float)
+        if arr.size and arr.min() == arr.max():
+            return MannWhitneyResults(np.nan, np.nan, alternative)
 
-        data = split_into_parts(ts1, 2)
+        data = split_into_parts(arr, 2)
         ts1 = data[0]
         ts2 = data[1]
 
-    g1 = list(ts1)
-    g2 = list(ts2)
+    g1 = np.asarray(ts1, dtype=float)
+    g2 = np.asarray(ts2, dtype=float)
 
-    gs_concat = g1 + g2
-    gs_sorted = np.sort(gs_concat)
+    n1 = g1.size
+
+    gs_concat = np.concatenate((g1, g2))
+    ranks = sts.rankdata(gs_concat, method='average' if ties else 'ordinal')
+
+    stat, p = _mann_whitney_from_ranks(
+        ranks, n1, continuity=continuity, ties=ties, alternative=alternative,
+    )
+    return MannWhitneyResults(stat, p, alternative)
 
 
-    n = len(gs_concat)
-    ranks = np.sort(ranks_with_ties_corrected(gs_concat)) if ties else [i + 1 for i in range(n)]
+def _mann_whitney_from_ranks(
+        ranks: np.ndarray,
+        n1: int,
+        *,
+        continuity: bool = True,
+        ties: bool = True,
+        alternative: str = 'two-sided',
+) -> tuple[float, float]:
+    """
+    Compute the Mann-Whitney U test from the ranks of both concatenated groups.
 
-    ranks_dict = dict(zip(gs_sorted, ranks, strict=True))
+    Parameters
+    ----------
+        ranks
+            Ranks of the concatenated groups, first group first. For the ties
+            correction to be meaningful they must be average ranks.
+        n1
+            Size of the first group.
+        continuity
+            If True, applies correction for continuity.
+        ties
+            If True, applies correction for ties.
+        alternative
+            One of 'two-sided', 'greater' or 'less'.
 
-    g1_ranks = [ranks_dict[value] for value in g1]
-    g2_ranks = [ranks_dict[value] for value in g2]
+    Returns
+    -------
+        A (statistic, p-value) tuple.
+    """
+    n2 = ranks.size - n1
+    n = n1 + n2
 
-    rank_sum1 = sum(g1_ranks)
-    rank_sum2 = sum(g2_ranks)
-
-    n1 = len(g1)
-    n2 = len(g2)
+    rank_sum1 = ranks[:n1].sum()
     u1 = n1 * n2 + (n1 * (n1 + 1)) / 2 - rank_sum1
-    u2 = n1 * n2 + (n2 * (n2 + 1)) / 2 - rank_sum2
+    u2 = n1 * n2 - u1
 
-    stat = min(u1, u2)
+    stat = float(min(u1, u2))
 
     mean_stat = (n1 * n2) / 2
     var = (n1 * n2 * (n1 + n2 + 1)) / 12
 
     if ties:
-        var = ((n1 * n2) / ((n) * (n - 1))) * np.sum(np.array(ranks) ** 2) \
+        var = ((n1 * n2) / ((n) * (n - 1))) * np.sum(ranks * ranks) \
             - ((n1 * n2 * (n + 1) ** 2) / (4 * (n - 1)))
 
     # Follow scipy's orientation: for the 'greater' alternative use the
@@ -140,7 +167,7 @@ def mann_whitney(
 
     p = f * sts.norm.sf(z)
     p = min(1.0, p)
-    return MannWhitneyResults(stat, p, alternative)
+    return stat, p
 
 
 if __name__ == "__main__":

@@ -43,18 +43,19 @@ The windows are evaluated from longest to shortest, meaning the starting point m
 
 The results are returned as a simple dictionary containing the p-values for each hypothesis and the (start, end) indexes of the RHIS-compliant stretch.
 
-For example, a time series with 15 elements produces six p-values for each hypothesis, corresponding to windows of sizes 15, 14, 13, 12, 11, 10, 9, and 8.
+For example, a time series with 15 elements produces eight p-values for each hypothesis, corresponding to windows of sizes 15, 14, 13, 12, 11, 10, 9, and 8. Each list still has one entry per observation (15), so the last 7 entries are `nan`: those windows are shorter than 8 and cannot be tested.
 
 ```py
 p_evol = {
     'flows': {
-        'R': [0.0000, 0.1772, 0.0523, 0.0014, 0.0272, 0.0015, 0.0883, 0.0541],
-        'H': [0.0021, 0.0727, 0.3645, 0.0033, 0.3372, 0.0232, 0.0736, 0.2641],
-        'I': [0.1000, 0.0645, 0.9234, 0.2219, 0.1275, 0.0664, 0.0102, 0.5433],
-        'S': [0.0670, 0.0145, 0.0023, 0.2943, 0.7369, 0.8882, 0.0921, 0.6182],
-        'RHIS-min': [0.0000, 0.0145, 0.0023, 0.0014, 0.0272, 0.0015, 0.0102, 0.0541]
+        'R': [0.0000, 0.1772, 0.0523, 0.0014, 0.0272, 0.0015, 0.0883, 0.0541, nan, nan, nan, nan, nan, nan, nan],
+        'H': [0.0021, 0.0727, 0.3645, 0.0033, 0.3372, 0.0232, 0.0736, 0.2641, nan, nan, nan, nan, nan, nan, nan],
+        'I': [0.1000, 0.0645, 0.9234, 0.2219, 0.1275, 0.0664, 0.0102, 0.5433, nan, nan, nan, nan, nan, nan, nan],
+        'S': [0.0670, 0.0145, 0.0023, 0.2943, 0.7369, 0.8882, 0.0921, 0.6182, nan, nan, nan, nan, nan, nan, nan],
+        'RHIS-min': [0.0000, 0.0145, 0.0023, 0.0014, 0.0272, 0.0015, 0.0102, 0.0541, nan, nan, nan, nan, nan, nan, nan]
         }
 }
+# (nan is numpy.nan)
 
 # For R:
 # 0.0000 -> p-value for the complete series (N=15)
@@ -65,19 +66,20 @@ p_evol = {
 # 0.0015 -> p-value with N - 5 observations
 # 0.0883 -> p-value with N - 6 observations
 # 0.0541 -> p-value with N - 7 observations (8 most recent values)
+# nan    -> windows with fewer than 8 observations are not tested
 # RHIS-min -> the minimum p-value at each time step
 
 idxs = {
-    'flows': (5, 15)
+    'flows': (7, 15)
     }
 
-# 5  -> index of the first observation in the RHIS-compliant stretch
+# 7  -> index of the first observation in the RHIS-compliant stretch
 # 15 -> exclusive end index (the last observation is at index 14)
 ```
 
-Reading the RHIS-min values from left to right, we can see how the series becomes RHIS-compliant as the window gets shorter. With (\alpha = 0.05), the first window that passes all four tests is the one containing the 10 most recent observations, where RHIS-min = 0.0541.
+Reading the RHIS-min values from left to right, we can see how the series becomes RHIS-compliant as the window gets shorter. With (\alpha = 0.05), the first window that passes all four tests is the last one, containing the 8 most recent observations, where RHIS-min = 0.0541.
 
-Therefore, the RHIS-compliant stretch starts at index 5 and ends at index 15 (exclusive), corresponding to the last 8 observations of the series.
+Therefore, the RHIS-compliant stretch starts at index 7 and ends at index 15 (exclusive), corresponding to the last 8 observations of the series.
 
 ## River Nile example
 
@@ -119,9 +121,10 @@ RHIS-TS gives you statistics; you bring the context. A few things are worth know
 
 ### What kind of series it works with
 
-RHIS-TS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. You can hand it that table in either of two ways:
+RHIS-TS takes a table of numbers in time order, oldest row first, one column per variable — annual streamflow, monthly rainfall, daily water levels, water-quality concentrations, and so on. You can hand it that table in any of three ways:
 
-- a `pandas.DataFrame` (every row is a time step, so the row index must not be a MultiIndex; the columns may use a MultiIndex, in which case the series are keyed by the column-label tuples), or
+- a `pandas.DataFrame` (every row is a time step, so the row index must not be a MultiIndex; the columns may use a MultiIndex, in which case the series are keyed by the column-label tuples),
+- a single `pandas.Series`, handled as the one-column DataFrame `series.to_frame()`: the series is keyed by its name (`0` if it has none), and its index must not be a MultiIndex either, or
 - a mapping (for example a `dict`) of series names to sequences of numbers, read positionally — a `pandas.Series` index is ignored, and series of different lengths are padded with NaN internally. The reported indexes are always relative to each original series, never to the padded table.
 
 **Each column needs at least 8 numeric values** to be considered, and every stretch it tests is also at least 8 observations long. Missing or non-numeric entries are skipped, not filled in, so gaps quietly reduce how much data each window really has.
@@ -186,7 +189,7 @@ pip install -e .[dev]
 
 ## Using RHIS-TS
 
-Give `Rhis` either a `pandas.DataFrame` or a mapping of series names to value sequences.
+Give `Rhis` a `pandas.DataFrame`, a single `pandas.Series`, or a mapping of series names to value sequences.
 
 ```py
 import pandas as pd
@@ -197,6 +200,9 @@ df = pd.read_csv("data.csv")
 
 rhis = Rhis(df)
 
+# ... or from a single Series, keyed by its name ("flow" here).
+rhis = Rhis(df["flow"])
+
 # ... or from a dict of series name -> sequence of values.
 rhis = Rhis({
     "flow": [1100, 1160, 1160, 813, 1120, 1150],
@@ -204,7 +210,7 @@ rhis = Rhis({
 })
 ```
 
-Both forms expose the same API:
+All forms expose the same API:
 
 ```py
 # 1. The RHIS evolution, as a nested dict: one list of p-values per hypothesis

@@ -1,7 +1,7 @@
 """The Rhis class: run the four RHIS-TS tests and locate the representative stretch."""
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -9,14 +9,14 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame
 
+from rhis_ts.hypothesis.evolution import SuffixEvolution, suffix_pvalues
 from rhis_ts.hypothesis.homogeneity import mann_whitney
 from rhis_ts.hypothesis.independence import wald_wolfowitz
 from rhis_ts.hypothesis.randomness import wallis_moore
 from rhis_ts.hypothesis.stationarity import mann_kendall
-from rhis_ts.utils import clean_numeric_array, slices_to_evol
+from rhis_ts.utils import clean_numeric_array
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
     from pandas import Series
 
     from rhis_ts.custom_types.data import SeriesKey, TimeSeriesFlex
@@ -33,7 +33,7 @@ def _is_series_like(values: object) -> bool:
 
 
 def _normalize_input(
-    data: DataFrame | Mapping[str, TimeSeriesFlex | Series],
+    data: DataFrame | Series | Mapping[str, TimeSeriesFlex | Series],
 ) -> tuple[DataFrame, dict[SeriesKey, int]]:
     """
     Normalize the accepted inputs into the DataFrame held internally.
@@ -43,12 +43,18 @@ def _normalize_input(
     indexes relative to each user series rather than to the padded frame.
 
     A DataFrame is used as is (its rows must not use a MultiIndex: each
-    row is a time step, and its columns may be a MultiIndex). A mapping of
+    row is a time step, and its columns may be a MultiIndex). A Series is
+    treated as a one-column DataFrame (Series.to_frame()): its index is
+    kept, its name becomes the series key (0 when unnamed), and its rows
+    must not use a MultiIndex either. A mapping of
     series names to value sequences is materialized into a DataFrame whose
     columns are the mapping keys and whose values are taken positionally
     (any index carried by a pandas Series is discarded). Ragged mappings
     are padded with NaN up to the longest series.
     """
+    if isinstance(data, pd.Series):
+        data = data.to_frame()
+
     if isinstance(data, DataFrame):
         if isinstance(data.index, pd.MultiIndex):
             msg = (
@@ -83,8 +89,9 @@ def _normalize_input(
         return DataFrame(series), lengths
 
     msg = (
-        "The parameter 'data' must be a pandas.DataFrame (whose rows must not "
-        "use a MultiIndex) or a mapping of series names to value sequences."
+        "The parameter 'data' must be a pandas.DataFrame or pandas.Series "
+        "(whose rows must not use a MultiIndex) or a mapping of series names "
+        "to value sequences."
     )
     logger.debug(msg)
     raise ValueError(msg)
@@ -114,15 +121,17 @@ class Rhis:
     Parameters
     ----------
         data
-            The time series to analyse, as a pandas.DataFrame or a mapping of
-            series names to value sequences. See Rhis.__init__ for the
+            The time series to analyse, as a pandas.DataFrame, a
+            pandas.Series or a mapping of series names to value
+            sequences. See Rhis.__init__ for the
             accepted inputs and how each series is interpreted.
 
     Attributes
     ----------
         orig_df
-            The input as a DataFrame; the mapping form is materialized and
-            ragged series are NaN-padded.
+            The input as a DataFrame; a Series becomes a one-column frame,
+            the mapping form is materialized and ragged series are
+            NaN-padded.
         numeric_orig_df
             orig_df coerced to numeric, with unusable columns dropped.
         series_lengths
@@ -141,20 +150,26 @@ class Rhis:
         Rhis.build_rhis_evol_dict, Rhis.get_repr_idxs : the public analysis.
     """
 
-    def __init__(self, data: DataFrame | Mapping[str, TimeSeriesFlex | Series]) -> None:
+    def __init__(self, data: DataFrame | Series | Mapping[str, TimeSeriesFlex | Series]) -> None:
         """
         Prepare a table of time series for RHIS analysis.
 
         Parameters
         ----------
             data
-                The time series to analyse, as either a pandas.DataFrame
-                or a mapping of series names to value sequences.
+                The time series to analyse, as a pandas.DataFrame, a
+                pandas.Series or a mapping of series names to value
+                sequences.
 
                 With a DataFrame, every column is a time series and every
                 row is a time step, so the row index must not be a
                 MultiIndex. The columns may use a MultiIndex; the series
                 keys then are the column-label tuples.
+
+                A pandas.Series is a single time series and is handled as
+                the one-column DataFrame Series.to_frame(): its index is
+                kept (and must not be a MultiIndex), and its name becomes
+                the series key, or 0 when the Series is unnamed.
 
                 With a mapping, every key is a series name and every value
                 is a sequence of numbers read in order (positional). The
@@ -289,113 +304,106 @@ class Rhis:
         ------
             ValueError
                 If 'ts_name' is not one of the known series names.
-
-        See Also
-        --------
-            Rhis.build_rhis_evol_dict : builds the p-value evolution used here.
-            Rhis._find_rhis_compliant_idxs : the slice-selection logic.
         """
-        alpha = self.alpha if alpha is None else alpha
-        evols = self.build_rhis_evol_dict(ts_name)
+        if ts_name is not None and ts_name not in self.numeric_orig_df.columns:
+            exist_cols = list(self.numeric_orig_df.columns)
+            msg = f"{ts_name} is not one the existent columns ({exist_cols})."
+            raise ValueError(msg)
 
-        self.repr_idxs = {
-            col: self._find_rhis_compliant_idxs(np.asarray(evol['RHIS-min'], dtype=float), alpha)
-            for col, evol in evols.items()
-        }
+        alpha = self.alpha if alpha is None else alpha
+        cols = list(self.numeric_orig_df.columns) if ts_name is None else [ts_name]
+
+        idxs = {}
+
+        for col in cols:
+            raw = self.numeric_orig_df[col].to_numpy()
+            idxs[col] = self._repr_idx_from_raw(col, raw, alpha)
+
+        self.repr_idxs = idxs
 
         return self.repr_idxs
 
-
-    def _find_rhis_compliant_idxs(self, pvalue_ts: NDArray[np.float64], alpha: float) -> tuple[int, int]:
+    def _repr_idx_from_raw(
+        self,
+        col: SeriesKey,
+        raw: np.ndarray,
+        alpha: float,
+    ) -> tuple[int, int]:
         """
-        Find the most recent stretch of the time series that is
-        RHIS-compliant: the longest possible slice that still ends at
-        the latest observation.
+        Find the representative stretch of one raw series, stopping early.
 
-        The p-value series passed in is produced by the evolution
-        process triggered by Rhis.build_rhis_evol_dict(); see the
-        'pvalue_ts' description below for how to read it.
-
-        Parameters
-        ----------
-            pvalue_ts
-                The evolution of p-values computed by Rhis.build_rhis_evol_dict()
-                for a single time series (or for a derived statistic, like
-                'RHIS-min', computed over its R, H, I and S p-values). The
-                value at index i is the p-value of the slice that starts
-                at position i and runs to the very end of the series.
-                Index 0 tests the complete series. The trailing entries
-                are NaN because those slices are shorter than
-                MIN_SERIES_LENGTH; an earlier entry may be NaN too, when
-                the slice has enough observations but the tests cannot be
-                computed on it, e.g. every value in it is equal.
-
-            alpha
-                The significance level. A p-value greater than or equal
-                to alpha means that slice passed the tests (failed to
-                reject the null hypothesis), i.e., it is RHIS-compliant.
-
-        Returns
-        -------
-            A tuple (start, end) with indexes into the original series.
-            The slice running from 'start' to the end of the series is
-            the representative slice: the longest RHIS-compliant stretch
-            that ends at the most recent observation.
+        Reuses the cached p-value evolution when it is already computed and
+        otherwise tests suffixes lazily, so a series that is compliant on the
+        complete stretch never pays for the whole evolution.
         """
-        pvalue_ts_last = len(pvalue_ts)
-        if pvalue_ts_last == 0 or np.all(np.isnan(pvalue_ts)):
-            return (0, 0)
+        cached = self.pvalues.get(col, {}).get('RHIS-min')
+        builder: Iterator[tuple[int, float]]
+        if cached is not None and len(cached) > 0:
+            builder = ((i, minute) for i, minute in enumerate(cached))
+        else:
+            finite_positions = np.flatnonzero(np.isfinite(raw))
+            values = raw[finite_positions]
+            evolution = SuffixEvolution(values, MIN_SERIES_LENGTH)
+            builder = self._raw_started_pvalues(raw, finite_positions, evolution)
 
-        # The first entry tests the complete time series. When p >= alpha
-        # the whole series passed every RHIS test, so the representative
-        # slice is the entire series.
-        if pvalue_ts[0] >= alpha:
-            return (0, pvalue_ts_last)
+        limit = len(raw) - MIN_SERIES_LENGTH
+        for i, minute in builder:
+            if i > limit:
+                break
+            is_compliant = not np.isnan(minute) and (minute >= alpha)
+            if is_compliant:
+                return (i, self.series_lengths[col])
 
-        # The complete series failed the tests, so the representative
-        # slice must be a slice that starts somewhere in the middle and
-        # runs to the end (i.e., it always ends at the most recent
-        # observation). These slices overlap in a simple way: the slice
-        # starting at position 1 contains the slice starting at position
-        # 2, which contains the one starting at 3, and so on. Each
-        # longer slice has already been tested and failed, so the FIRST
-        # slice that passes (p-value at or above alpha) is, by definition,
-        # the LONGEST one that passes and still reaches the most recent
-        # observation.
-        #
-        # NaN entries mark slices that could not be tested: shorter than
-        # MIN_SERIES_LENGTH, or long enough but degenerate (every value
-        # equal, for instance). They act as a stopping boundary, just like
-        # a passing p-value.
-        #
-        # For an evolution built by build_rhis_evol_dict(), pvalue_ts[0] is
-        # a real number here: were it NaN, the complete series itself would
-        # be untestable (too short, or all values equal), every slice would
-        # be NaN too, and the check above would already have returned. Such
-        # an evolution also always ends with MIN_SERIES_LENGTH - 1 NaN
-        # entries, so a stopping point after index 0 is guaranteed.
-        fails_to_reject = ~(pvalue_ts < alpha)  # p >= alpha, or NaN
-        idx = int(np.argmax(fails_to_reject))
+        return (0, 0)
 
-        return idx, pvalue_ts_last
+    @staticmethod
+    def _raw_started_pvalues(
+        raw: np.ndarray,
+        finite_positions: np.ndarray,
+        evolution: SuffixEvolution,
+    ) -> Iterator[tuple[int, float]]:
+        """
+        Yield ``(raw_start, min p-value)`` per raw position, nondecreasing.
+
+        Several raw starts that only differ by leading non-finite values share
+        the same cleaned suffix, so their entry repeats until the next finite
+        observation begins a new suffix.
+        """
+        iterator = iter(evolution)
+        current = next(iterator, None)
+        for i in range(len(raw)):
+            start = int(np.searchsorted(finite_positions, i, side='left'))
+            while current is not None and current[0] < start:
+                current = next(iterator, None)
+            if current is not None and current[0] == start:
+                yield i, min(current[1].values())
+            else:
+                yield i, np.nan
 
 
     @staticmethod
     def _evol_dict_from_ts(ts: Series) -> dict[str, list[float]]:
-        slices = slices_to_evol(ts.to_numpy(), MIN_SERIES_LENGTH)
-        evol: dict[str, list[float]] = {'R': [], 'H': [], 'I': [], 'S': []}
+        """
+        Build the p-value evolution of one series from its cleaned suffixes.
 
-        for sli in slices:
-            rhis_dict = Rhis.calculate_rhis(sli)
-            evol['R'].append(rhis_dict['R'])
-            evol['H'].append(rhis_dict['H'])
-            evol['I'].append(rhis_dict['I'])
-            evol['S'].append(rhis_dict['S'])
+        Raw positions that share the same finite suffix (because they only
+        differ by leading non-finite values) reuse the very same p-values.
+        """
+        raw = np.asarray(ts.to_numpy(), dtype=float)
+        size = raw.size
+        finite_positions = np.flatnonzero(np.isfinite(raw))
+        values = raw[finite_positions]
+        cleaned = suffix_pvalues(values, MIN_SERIES_LENGTH)
 
-        fill = np.full(MIN_SERIES_LENGTH - 1, np.nan)
+        starts = np.searchsorted(finite_positions, np.arange(size), side='left')
+        testable = (np.arange(size) <= size - MIN_SERIES_LENGTH) \
+            & (starts <= values.size - MIN_SERIES_LENGTH)
 
-        for hyp, ps in evol.items():
-            evol[hyp] = list(np.append(ps, fill))
+        evol: dict[str, list[float]] = {}
+        for hyp, p_values in cleaned.items():
+            column = np.full(size, np.nan)
+            column[testable] = p_values[starts[testable]]
+            evol[hyp] = column.tolist()
 
         return evol
 
