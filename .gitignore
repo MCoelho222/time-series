@@ -18,4 +18,3 @@ rhis_plots/
 *.PNG
 !RHIS flow.PNG
 deprecated/
-plotting/
