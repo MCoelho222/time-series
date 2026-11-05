@@ -138,7 +138,7 @@ rhis-ts = "rhis_ts:__main__.main"
     skip-magic-trailing-comma = false
 
   [tool.ruff.lint.isort]
-    known-first-party = ["rhis_ts", "tests", "testing"]
+    known-first-party = ["rhis_ts", "tests"]
     split-on-trailing-comma = true
     required-imports = ["from __future__ import annotations"]
 
@@ -156,7 +156,6 @@ rhis-ts = "rhis_ts:__main__.main"
     "tests/*" = ["S101", "D"] # allow assert, ignore missing docs
     "src/" = ["D"] # Ignore missing docs
     "__init__.py" = ["D", "F401"] # Ignore docstring, allow unused import****
-    "testing/*" = ["D" ] # Ignore missing docs
 
 [tool.coverage.report]
   fail_under = 90
