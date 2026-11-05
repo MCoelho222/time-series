@@ -52,6 +52,14 @@ The linter enforces most of it:
 
 ### Changing a statistical test
 
+The four tests are the core of RHIS-TS, so changes to them need scientific support, not only passing code. This applies to anything that can change a statistic or a p-value: the formula, the handling of ties, the variance or continuity correction, the normal approximation or its validity limits, and the minimum series length.
+
+- **Cite your sources.** In the pull request, explain why the change is correct and cite the references that support it: peer-reviewed papers, textbooks or established statistical references (for example Helsel & Hirsch, 2002, already listed in the README). Include the specific equation, table or page where possible.
+- **Show the effect.** Include a test that reproduces a published or independently computed result (for example a worked example from the reference, or the output of a well-established implementation), and describe how the change affects results on real data such as the bundled Nile series.
+- **Update the docs.** Add new references to the README's References section and update the matching explanation in `src/rhis_ts/docs/hypothesis_tests/`.
+
+Changes without supporting references may be asked for more evidence before they can be merged.
+
 The package computes p-values in two ways that must give the same results: each test's public function (one series at a time) and the fast incremental path in `src/rhis_ts/hypothesis/evolution.py`. If you change how a statistic is computed, update both. `tests/test_core_evolution_equivalence.py` checks that they agree. [`AGENTS.md`](AGENTS.md) describes the architecture in more detail.
 
 ## Using AI coding agents

@@ -47,6 +47,7 @@ If `python -m build` fails with `No module named build.__main__`, a stale `build
 - **Do not change `__version__`, tags, releases or the publish workflow.** Releases are made by the maintainer (see Release).
 - **Keep the public API stable.** `Rhis`, `build_rhis_evol_dict()` and `get_repr_idxs()` are used by others; discuss breaking changes in an issue first.
 - **Do not commit** notebook outputs that were not asked for, local data, build artifacts (`build/`, `dist/`), or anything in git-ignored folders (`posts/`, `deprecated/`, `rhis_plots/`, `hypothesis_testing_plots/`).
+- **Changes to a statistical test need scientific support.** Any change that can alter a statistic or p-value (formula, ties, variance or continuity correction, approximation limits, minimum length) must cite peer-reviewed papers, textbooks or established statistical references (with equation, table or page where possible), include a test that reproduces a published or independently computed result, and update the README References and `src/rhis_ts/docs/hypothesis_tests/`. Never change test statistics based only on making tests pass. See `CONTRIBUTING.md`.
 - **Statistical claims need evidence.** When docs or notebooks state a result (a stretch, a p-value, a year), compute it with the current code rather than copying it from older text.
 - Keep PRs focused: one topic per PR, with a description of what changed and how it was checked.
 
