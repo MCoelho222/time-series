@@ -89,7 +89,7 @@ The drop was mainly climatic: the summer monsoons over the Ethiopian highlands, 
 
 ### RHIS-TS applied on Nile time series
 
-![Nile](/assets/RHIS%20flow.PNG)
+![Nile](https://raw.githubusercontent.com/MCoelho222/time-series/master/assets/RHIS%20flow.PNG)
 
 This figure shows the results of the **rhis-ts** package on the Nile series. **Top:** the full annual flow series together with the RHIS-compliant stretch, `flow_repr` (1896–1970). **Bottom:** the evolution of the four RHIS p-values. Reading from left to right, the first point comes from the tests applied to the full series; each following point re-runs the tests on the series from that time step onward, so the last point is the test on the most recent 8 values. Under RHIS-min, all p-values start below alpha, and homogeneity and stationarity stop being rejected around 1885. Independence, however, keeps being rejected until 1896, when all four hypotheses are finally non-rejected. The stretch from 1896 to 1970 is therefore the most recent period in which all four hypotheses hold — a single population that can be safely used for frequency analysis, matching the changepoint reported by Cobb (1978) and the climatic explanation of Eltahir (1996).
 
