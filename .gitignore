@@ -17,3 +17,5 @@ hypothesis_testing_plots/
 *.PNG
 !RHIS flow.PNG
 deprecated/
+# Drafts for social posts (images, text), kept local
+posts/
