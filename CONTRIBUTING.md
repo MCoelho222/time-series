@@ -13,13 +13,19 @@ Thanks for your interest in improving `rhis-ts`! Bug reports, examples, document
 
 You need Python 3.10 or newer.
 
+1. Fork the repository on GitHub (the **Fork** button at the top right). This creates your own copy, where you can push branches.
+2. Clone your fork and add the original repo as `upstream`, to keep it up to date:
+
 ```bash
-git clone https://github.com/<your-username>/time-series.git   # your fork
+git clone https://github.com/<your-username>/time-series.git
 cd time-series
+git remote add upstream https://github.com/MCoelho222/time-series.git
 python -m venv .venv
 source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -e .[dev]
 ```
+
+With the [GitHub CLI](https://cli.github.com/), `gh repo fork MCoelho222/time-series --clone` does steps 1 and 2 in one command.
 
 ## Checks
 
@@ -35,11 +41,11 @@ To run the full matrix locally, use `tox` (it needs `tox` and `tox-uv` installed
 
 ## Making a change
 
-1. Fork the repository and create a branch from `master` (for example `fix/nan-handling` or `docs/readme-example`).
+1. Update your local `master` (`git checkout master && git pull upstream master`) and create a branch from it (for example `fix/nan-handling` or `docs/readme-example`).
 2. Make your change, with tests for any change in behavior.
 3. Add an entry to `CHANGELOG.md` under `## [Unreleased]` if users will notice the change.
 4. Run the checks above.
-5. Open a pull request and fill in the template.
+5. Push the branch to your fork (`git push -u origin <branch-name>`) and open a pull request against `MCoelho222/time-series:master`, filling in the template.
 
 ### Code style
 
