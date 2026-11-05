@@ -230,6 +230,10 @@ representative = df.iloc[start:end]
 
 If the DataFrame columns are a MultiIndex, the series keys are the column-label tuples (for example `("flow", "m3s")`), and you look them up with that tuple.
 
+## Contributing
+
+Bug reports, questions, examples and pull requests are welcome. See [CONTRIBUTING.md](https://github.com/MCoelho222/time-series/blob/master/CONTRIBUTING.md) for how to set up, run the checks and propose a change. If you work with an AI coding agent, [AGENTS.md](https://github.com/MCoelho222/time-series/blob/master/AGENTS.md) has the instructions it needs.
+
 ## License
 
 Released under the [MIT License](LICENSE).

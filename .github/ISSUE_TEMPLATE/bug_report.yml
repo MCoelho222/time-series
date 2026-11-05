@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in rhis-ts gives an error or a wrong result.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a bug! A small example that reproduces it helps the most.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead? Include the full error message if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal example
+      description: The shortest code (and data, if possible) that reproduces the problem.
+      render: python
+      placeholder: |
+        import pandas as pd
+        from rhis_ts import Rhis
+
+        series = pd.Series([...], name='flow')
+        print(Rhis(series).get_repr_idxs())
+    validations:
+      required: true
+  - type: input
+    id: rhis-version
+    attributes:
+      label: rhis-ts version
+      description: Run `python -c "import rhis_ts; print(rhis_ts.__version__)"`.
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Python version and operating system
+      placeholder: Python 3.12, Ubuntu 24.04
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Versions of pandas/numpy/scipy, links, screenshots or other context.

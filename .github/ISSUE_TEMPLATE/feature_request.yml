@@ -1,0 +1,21 @@
+name: Feature request or question
+description: Suggest an improvement, or ask about using rhis-ts or reading its results.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What would you like to do?
+      description: Describe the problem or question, ideally with the kind of data you work with (for example annual streamflow, monthly rainfall).
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed solution
+      description: If you have an idea of how rhis-ts could help, describe it here.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: References, examples or related tools.
