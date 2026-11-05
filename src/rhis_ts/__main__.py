@@ -21,8 +21,9 @@ def load_example_data() -> DataFrame:
     published in Cobb (1978), Table 1, page 249, and distributed as the
     R 'datasets::Nile' object (also available in statsmodels). The
     series has an apparent changepoint near 1898, widely used in
-    changepoint-detection literature, and is the reason the RHIS-TS
-    example recovers the post-1898 period as the representative slice.
+    changepoint-detection literature. The RHIS-TS example recovers
+    1894-1970, starting just before that changepoint, as the
+    representative slice.
 
     The record intentionally ends in 1970: it corresponds to Cobb's
     published table. The Aswan gauge itself has been read since 1869,
