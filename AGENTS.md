@@ -57,7 +57,7 @@ If `python -m build` fails with `No module named build.__main__`, a stale `build
 - `src/rhis_ts/hypothesis/`: the four tests and `evolution.py` (incremental suffix evolution).
 - `src/rhis_ts/docs/hypothesis_tests/`: explanations of each test; update them when a test changes.
 - `src/rhis_ts/data/nile_river_annual_flow.csv`: bundled dataset used by the `rhis-ts` demo and tests.
-- `example_notebooks/`: example analyses (`usgs.ipynb`) with `helpers.py` and the `plotting` helpers.
+- `example_notebooks/`: example analyses (`usgs.ipynb`, Potomac River; `iguacu.ipynb`, Iguaçu River) with `helpers.py` (RHIS summaries, plots, ANA download) and the `plotting` helpers. Data snapshots live in `example_notebooks/datasets/`.
 
 ## Release
 
