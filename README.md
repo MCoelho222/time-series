@@ -230,6 +230,13 @@ representative = df.iloc[start:end]
 
 If the DataFrame columns are a MultiIndex, the series keys are the column-label tuples (for example `("flow", "m3s")`), and you look them up with that tuple.
 
+## Example notebooks
+
+Two step-by-step analyses of real streamflow records, from exploratory plots to RHIS-TS results and what they mean for water resources management:
+
+* [Potomac River at Little Falls, USA](https://github.com/MCoelho222/time-series/blob/master/example_notebooks/usgs.ipynb) (USGS 01646500, 1930–2026): the annual record passes as a whole, while daily and monthly flows show why persistence and seasons matter.
+* [Iguaçu River at Porto Amazonas, Brazil](https://github.com/MCoelho222/time-series/blob/master/example_notebooks/iguacu.ipynb) (ANA 65035000, 1935–2019): the river became wetter around 1970, and gaps and unchecked recent data change the low-flow result.
+
 ## Contributing
 
 Bug reports, questions, examples and pull requests are welcome. See [CONTRIBUTING.md](https://github.com/MCoelho222/time-series/blob/master/CONTRIBUTING.md) for how to set up, run the checks and propose a change. If you work with an AI coding agent, [AGENTS.md](https://github.com/MCoelho222/time-series/blob/master/AGENTS.md) has the instructions it needs.
