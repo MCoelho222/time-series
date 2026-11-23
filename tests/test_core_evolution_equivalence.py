@@ -1,15 +1,29 @@
 """Equivalence of the incremental evolution against the per-slice reference."""
 from __future__ import annotations
 
+import time
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from rhis_ts.core import DEFAULT_ALPHA, MIN_SERIES_LENGTH, Rhis
+from rhis_ts.hypothesis import evolution
+from rhis_ts.hypothesis.evolution import SuffixEvolution
 from rhis_ts.utils import slices_to_evol
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 HYPOTHESES = ('R', 'H', 'I', 'S')
 SHORT_SERIES_LENGTH = 80
+SPEED_SERIES_LENGTH = 300
+MIN_SPEEDUP = 8.0
+TIMING_REPEATS = 3
+SCAN_SERIES_LENGTH = 600
+MAX_EXPENSIVE_TEST_SHARE = 0.05
+MIN_SCANNED_SUFFIXES = 100
 
 
 def _brute_evolution(values: np.ndarray) -> dict[str, np.ndarray]:
@@ -156,3 +170,71 @@ def test_get_repr_idxs_does_not_build_the_full_evolution() -> None:
     assert start == _brute_repr(rhis, 'x', DEFAULT_ALPHA)[0]
     # The lazy scan must not populate the evolution cache.
     assert rhis.pvalues['x']['RHIS-min'] == []
+
+
+def _best_time(func: Callable[[], object], repeats: int = TIMING_REPEATS) -> float:
+    """Return the fastest wall-clock time of ``repeats`` calls, which is the least noisy estimate."""
+    timings = []
+    for _ in range(repeats):
+        start = time.perf_counter()
+        func()
+        timings.append(time.perf_counter() - start)
+    return min(timings)
+
+
+def test_incremental_evolution_is_faster_than_per_slice_reference() -> None:
+    # Measured at about 14x; the 8x floor leaves room for noisy CI runners.
+    values = np.random.default_rng(10).normal(size=SPEED_SERIES_LENGTH)
+
+    fast = _best_time(lambda: Rhis({'x': values}).build_rhis_evol_dict())
+    slow = _best_time(lambda: _brute_evolution(values))
+
+    assert slow >= MIN_SPEEDUP * fast, f'incremental {fast:.3f}s vs per-slice {slow:.3f}s ({slow / fast:.1f}x)'
+
+
+@pytest.mark.parametrize('kind', ['normal', 'ties', 'rounded', 'constant_tail', 'trend'])
+@pytest.mark.parametrize('seed', [0, 1, 2])
+def test_min_pvalue_early_exit_gives_the_same_verdict(kind: str, seed: int) -> None:
+    if kind == 'trend':
+        values = np.random.default_rng(seed).normal(size=SHORT_SERIES_LENGTH) + np.linspace(0, 2, SHORT_SERIES_LENGTH)
+    else:
+        values = _make_case(kind, SHORT_SERIES_LENGTH, seed)
+    full = list(SuffixEvolution(values, MIN_SERIES_LENGTH))
+    early = list(SuffixEvolution(values, MIN_SERIES_LENGTH).iter_min_pvalues(DEFAULT_ALPHA))
+
+    assert [start for start, _ in early] == [start for start, _ in full]
+    for (_, p_values), (_, early_min) in zip(full, early, strict=True):
+        full_min = float(np.min(list(p_values.values())))
+        complies = not np.isnan(full_min) and full_min >= DEFAULT_ALPHA
+        assert (not np.isnan(early_min) and early_min >= DEFAULT_ALPHA) == complies
+        if complies:
+            assert early_min == full_min
+
+
+def test_get_repr_idxs_skips_expensive_tests_on_failing_suffixes(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A trend fails Mann-Kendall (S) on long suffixes, so the O(n) Mann-Whitney (H) and
+    # Wald-Wolfowitz (I) tests should almost never run before the compliant stretch.
+    rng = np.random.default_rng(1)
+    values = rng.normal(size=SCAN_SERIES_LENGTH) + np.linspace(0, 3, SCAN_SERIES_LENGTH)
+    calls = {'H': 0, 'I': 0}
+    mann_whitney = evolution._mann_whitney_from_ranks
+    wald_wolfowitz = evolution._wald_wolfowitz_from_array
+
+    def counting_mann_whitney(ranks: np.ndarray, n1: int) -> tuple[float, float]:
+        calls['H'] += 1
+        return mann_whitney(ranks, n1)
+
+    def counting_wald_wolfowitz(arr: np.ndarray) -> tuple[float, float]:
+        calls['I'] += 1
+        return wald_wolfowitz(arr)
+
+    monkeypatch.setattr(evolution, '_mann_whitney_from_ranks', counting_mann_whitney)
+    monkeypatch.setattr(evolution, '_wald_wolfowitz_from_array', counting_wald_wolfowitz)
+
+    start, end = Rhis({'x': values}).get_repr_idxs()['x']
+
+    scanned = start + 1
+    assert end == SCAN_SERIES_LENGTH
+    assert scanned > MIN_SCANNED_SUFFIXES  # the stretch is found well after the start, so the scan is long enough to matter
+    assert calls['H'] <= MAX_EXPENSIVE_TEST_SHARE * scanned
+    assert calls['I'] <= MAX_EXPENSIVE_TEST_SHARE * scanned

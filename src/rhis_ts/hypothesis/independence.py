@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import scipy.stats as sts
+from scipy.special import ndtr
 
 from rhis_ts.custom_types import WaldWolfowitzResults
 from rhis_ts.utils import ranks_with_ties_corrected, to_ranks
@@ -131,7 +131,8 @@ def _wald_wolfowitz_from_array(arr: np.ndarray) -> tuple[float, float]:
         raise ValueError(msg)
 
     z = abs((r - e_r) / np.sqrt(var_r))
-    p = 2 * (1 - sts.norm.cdf(z))
+    # Same value as scipy.stats.norm.cdf(z), without its per-call overhead.
+    p = 2 * (1 - float(ndtr(z)))
 
     return r, p
 

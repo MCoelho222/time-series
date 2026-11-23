@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import scipy.stats as sts
+from scipy.special import ndtr
 
 from rhis_ts.custom_types import MannWhitneyResults
 from rhis_ts.utils import split_into_parts
@@ -165,7 +166,8 @@ def _mann_whitney_from_ranks(
 
     z = (u - mean_stat - (0.5 if continuity else 0)) / np.sqrt(var)
 
-    p = f * sts.norm.sf(z)
+    # Same value as scipy.stats.norm.sf(z), without its per-call overhead.
+    p = f * float(ndtr(-z))
     p = min(1.0, p)
     return stat, p
 
