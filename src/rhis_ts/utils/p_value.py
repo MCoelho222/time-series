@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import scipy.stats as sts
+from scipy.special import ndtr
 
 from rhis_ts.custom_types import NormalPValue
 
@@ -18,7 +18,9 @@ def p_value_normal(z: float) -> float:
     -------
         The p_value.
     """
-    return 1. - sts.norm.cdf(abs(z))
+    # ndtr is the standard normal CDF that scipy.stats.norm.cdf evaluates, without
+    # its per-call argument checking, which dominated the suffix evolution's run time.
+    return 1. - float(ndtr(abs(z)))
 
 
 def p_value_normal_directional(

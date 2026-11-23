@@ -9,8 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- A test that checks the incremental p-value evolution stays at least twice as
-  fast as the per-slice reference.
+- A test that checks the incremental p-value evolution stays at least eight
+  times as fast as the per-slice reference.
+
+### Changed
+
+- Faster p-values. Normal-approximation p-values call `scipy.special.ndtr`
+  directly instead of `scipy.stats.norm`, whose per-call argument checking
+  dominated the run time. Results are bit-identical. `build_rhis_evol_dict` is
+  about 6x faster on 600–900-value series.
+- `get_repr_idxs` checks the constant-time tests (Mann-Kendall, then
+  Wallis-Moore) first and skips Mann-Whitney and Wald-Wolfowitz on windows
+  that already fail. Together with the change above it is about 13x faster on
+  600–900-value series, with the same results. A window with an untestable
+  (NaN) p-value is now always treated as non-compliant, as it already was when
+  the p-value evolution was cached.
 
 ## [0.2.0] - 2026-11-04
 

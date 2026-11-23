@@ -344,7 +344,7 @@ class Rhis:
             finite_positions = np.flatnonzero(np.isfinite(raw))
             values = raw[finite_positions]
             evolution = SuffixEvolution(values, MIN_SERIES_LENGTH)
-            builder = self._raw_started_pvalues(raw, finite_positions, evolution)
+            builder = self._raw_started_pvalues(raw, finite_positions, evolution, alpha)
 
         limit = len(raw) - MIN_SERIES_LENGTH
         for i, minute in builder:
@@ -361,22 +361,25 @@ class Rhis:
         raw: np.ndarray,
         finite_positions: np.ndarray,
         evolution: SuffixEvolution,
+        alpha: float,
     ) -> Iterator[tuple[int, float]]:
         """
         Yield ``(raw_start, min p-value)`` per raw position, nondecreasing.
 
         Several raw starts that only differ by leading non-finite values share
         the same cleaned suffix, so their entry repeats until the next finite
-        observation begins a new suffix.
+        observation begins a new suffix. The value only decides compliance
+        with 'alpha' (see SuffixEvolution.iter_min_pvalues): a failing suffix
+        stops at its first failing test instead of computing all four.
         """
-        iterator = iter(evolution)
+        iterator = evolution.iter_min_pvalues(alpha)
         current = next(iterator, None)
         for i in range(len(raw)):
             start = int(np.searchsorted(finite_positions, i, side='left'))
             while current is not None and current[0] < start:
                 current = next(iterator, None)
             if current is not None and current[0] == start:
-                yield i, min(current[1].values())
+                yield i, current[1]
             else:
                 yield i, np.nan
 

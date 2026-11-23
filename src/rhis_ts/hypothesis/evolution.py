@@ -118,33 +118,80 @@ class SuffixEvolution:
             yield self._start, self._current_pvalues()
             self._slide()
 
+    def iter_min_pvalues(self, alpha: float) -> Iterator[tuple[int, float]]:
+        """
+        Yield ``(start, min p-value)`` for every testable suffix, testing only what decides compliance.
+
+        A suffix complies when none of the four p-values is NaN or below
+        'alpha'. The tests run cheapest first: S and R come from statistics
+        that '_slide' keeps up to date in constant time, while H and I scan
+        the whole suffix. At the first failing (or untestable) test the
+        remaining ones are skipped and that test's p-value is yielded. The
+        yielded value therefore always gives the same compliance verdict as
+        the minimum of all four p-values, and equals that minimum when the
+        suffix complies.
+
+        Parameters
+        ----------
+            alpha
+                The significance level.
+        """
+        while self._start < self.n_suffixes:
+            yield self._start, self._current_min_pvalue(alpha)
+            self._slide()
+
+    def _current_min_pvalue(self, alpha: float) -> float:
+        """Return the current suffix's min p-value, stopping at the first failing test."""
+        if self._distinct <= 1:
+            return np.nan
+
+        lowest = np.inf
+        for p_value_of in (self._p_value_s, self._p_value_r, self._p_value_h, self._p_value_i):
+            p_value = p_value_of()
+            if np.isnan(p_value) or p_value < alpha:
+                return p_value
+            lowest = min(lowest, p_value)
+        return lowest
+
     def _current_pvalues(self) -> dict[str, float]:
         """Compute the four p-values of the current suffix without mutating state."""
-        n = self._total - self._start
-        p_values = dict.fromkeys(_HYPOTHESES, np.nan)
-
         if self._distinct <= 1:
-            return p_values
+            return dict.fromkeys(_HYPOTHESES, np.nan)
 
-        ranks = self._ranks[self._start:]
+        return {
+            'R': self._p_value_r(),
+            'H': self._p_value_h(),
+            'I': self._p_value_i(),
+            'S': self._p_value_s(),
+        }
 
-        _, p_values['R'] = _wallis_moore_from_runs(
-            n, self._up_runs, self._down_runs,
-        )
+    def _p_value_r(self) -> float:
+        """Wallis-Moore p-value of the current suffix, from the maintained run counts."""
+        n = self._total - self._start
+        _, p_value = _wallis_moore_from_runs(n, self._up_runs, self._down_runs)
+        return float(p_value)
 
+    def _p_value_h(self) -> float:
+        """Mann-Whitney p-value of the current suffix's first half against its second half."""
+        n = self._total - self._start
         n1 = n // 2 + n % 2
-        _, p_values['H'] = _mann_whitney_from_ranks(ranks, n1)
+        _, p_value = _mann_whitney_from_ranks(self._ranks[self._start:], n1)
+        return float(p_value)
 
+    def _p_value_i(self) -> float:
+        """Wald-Wolfowitz p-value of the current suffix's ranks (NaN when the variance is degenerate)."""
         try:
-            _, p_values['I'] = _wald_wolfowitz_from_array(ranks)
+            _, p_value = _wald_wolfowitz_from_array(self._ranks[self._start:])
         except ValueError:
-            p_values['I'] = np.nan
+            return np.nan
+        return float(p_value)
 
+    def _p_value_s(self) -> float:
+        """Mann-Kendall p-value of the current suffix, from the maintained inversion and tie counts."""
+        n = self._total - self._start
         n0 = n * (n - 1) / 2
         test_s = n0 - self._ties_pairs - 2 * self._inversions
-        p_values['S'] = _mann_kendall_from_s(n, test_s, self._ties_factor)
-
-        return p_values
+        return float(_mann_kendall_from_s(n, test_s, self._ties_factor))
 
     def _slide(self) -> None:
         """Drop the first value of the current suffix and update every statistic."""
