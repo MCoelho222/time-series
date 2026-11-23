@@ -1,6 +1,9 @@
 """Equivalence of the incremental evolution against the per-slice reference."""
 from __future__ import annotations
 
+import time
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,8 +11,14 @@ import pytest
 from rhis_ts.core import DEFAULT_ALPHA, MIN_SERIES_LENGTH, Rhis
 from rhis_ts.utils import slices_to_evol
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 HYPOTHESES = ('R', 'H', 'I', 'S')
 SHORT_SERIES_LENGTH = 80
+SPEED_SERIES_LENGTH = 300
+MIN_SPEEDUP = 2.0
+TIMING_REPEATS = 3
 
 
 def _brute_evolution(values: np.ndarray) -> dict[str, np.ndarray]:
@@ -156,3 +165,23 @@ def test_get_repr_idxs_does_not_build_the_full_evolution() -> None:
     assert start == _brute_repr(rhis, 'x', DEFAULT_ALPHA)[0]
     # The lazy scan must not populate the evolution cache.
     assert rhis.pvalues['x']['RHIS-min'] == []
+
+
+def _best_time(func: Callable[[], object], repeats: int = TIMING_REPEATS) -> float:
+    """Return the fastest wall-clock time of ``repeats`` calls, which is the least noisy estimate."""
+    timings = []
+    for _ in range(repeats):
+        start = time.perf_counter()
+        func()
+        timings.append(time.perf_counter() - start)
+    return min(timings)
+
+
+def test_incremental_evolution_is_faster_than_per_slice_reference() -> None:
+    # Measured at about 4.5x; the 2x floor leaves room for noisy CI runners.
+    values = np.random.default_rng(10).normal(size=SPEED_SERIES_LENGTH)
+
+    fast = _best_time(lambda: Rhis({'x': values}).build_rhis_evol_dict())
+    slow = _best_time(lambda: _brute_evolution(values))
+
+    assert slow >= MIN_SPEEDUP * fast, f'incremental {fast:.3f}s vs per-slice {slow:.3f}s ({slow / fast:.1f}x)'
